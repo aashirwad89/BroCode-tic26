@@ -12,11 +12,11 @@ export const genOtp = async (req, res) => {
       return res.status(400).json({ message: "Phone number is required" });
     }
     
-    // ✅ Validate phone format
-    if (!/^\d{10}$/.test(phone)) {
-      return res.status(400).json({ message: "Phone must be 10 digits" });
+    // ✅ Validate phone format: support 10-digit local numbers and 12-digit (with country code, e.g., 91xxxxxxxxxx)
+    if (!/^(\d{10}|\d{12})$/.test(phone)) {
+      return res.status(400).json({ message: "Phone must be 10 or 12 digits" });
     }
-    
+
     // ✅ Check if OTP already exists for this phone
     await Otp.deleteMany({ phone }); // Clear old OTPs
     
@@ -30,16 +30,18 @@ export const genOtp = async (req, res) => {
     const createOtp = await Otp.create({
       phone,
       otp,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
     
-    if (createOtp) {
-      console.log("✅ OTP stored in DB:", otp);
-      return res.status(200).json({
-        message: "OTP sent successfully",
-        otp: otp, // Remove in production!
-      });
+    if (!createOtp) {
+      return res.status(500).json({ message: "Failed to store OTP" });
     }
+
+    console.log("✅ OTP stored in DB:", otp);
+    return res.status(200).json({
+      message: "OTP sent successfully",
+      otp: otp, // Remove in production!
+    });
 
   } catch (error) {
     console.error("❌ OTP generation failed:", error.message);
@@ -81,7 +83,7 @@ export const verifyOtp = async (req, res) => {
         
         res.cookie("token", token, {
             httpOnly : true,
-            secure : process.env.NODE_ENVIRONMENT === "production",
+            secure : process.env.NODE_ENV === "production",
             sameSite : "none", // ✅ FIX: Changed samesite to sameSite
             maxAge : 7*24*60*60*1000
         });

@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
         unique : true,
         required : [true,"phone number is required"],
         minLength : 8,
-        maxLength : 12
+        maxLength : 15
     }
 },{timestamps : true})
 const User = mongoose.model("User",userSchema);
