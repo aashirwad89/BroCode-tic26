@@ -1,402 +1,680 @@
-import React from 'react'
+/* eslint-disable @typescript-eslint/array-type */
+import React, { useState, useEffect } from 'react'
 import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
+  SafeAreaView,
   ScrollView,
-  StatusBar,
+  TouchableOpacity,
+  Image,
+  Alert,
   Dimensions,
+  Animated,
+  DrawerLayoutAndroid,
 } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
+import { MaterialCommunityIcons, Feather } from '@expo/vector-icons'
+import { useNavigation } from '@react-navigation/native'
+import { Link } from 'expo-router'
+import { useRouter } from 'expo-router'
 
 const { width, height } = Dimensions.get('window')
 
 const COLORS = {
-  bgTop: '#FDF6FB',
-  bgBottom: '#EEF3FF',
-  
-  card: '#FFFFFF',
-  text: '#1F2A44',
-  subText: '#7C8192',
-  green: '#10B981',
+  dark: '#0B1220',
+  card: '#121A2B',
+  purple: '#7C3AED',
+  purpleLight: '#A78BFA',
+  text: '#F8FAFC',
+  textSecondary: '#94A3B8',
+  border: '#1E293B',
   red: '#EF4444',
-  pink: '#FF7CCB',
-  purple: '#B06CFF',
-  border: '#E7E8F0',
-  shadow: '#C9BEDD',
+  green: '#10B981',
+  blue: '#3B82F6',
+  yellow: '#F59E0B',
 }
 
-const statusItems = [
-  { label: 'Safety Status', value: 'Shared', state: 'active', color: COLORS.green },
-  { label: 'Trusted Circle', value: 'All features active', color: COLORS.green },
-]
+const Home = () => {
+  const navigation = useNavigation()
+  const router = useRouter() // ✅ Add this
+  const [isActive, setIsActive] = useState(false)
+  const [userName, setUserName] = useState('User')
+  const drawerRef = React.useRef<DrawerLayoutAndroid>(null)
+  const scaleAnim = React.useRef(new Animated.Value(1)).current
 
-const sosActions = [
-  { icon: '📞', label: 'Quick Call', sub: 'Emergency Helpline' },
-  { icon: '📍', label: 'Share Location', sub: 'Real-time tracking' },
-]
+  useEffect(() => {
+    // Fetch user name from storage
+    // AsyncStorage.getItem('userName').then(name => setUserName(name || 'User'))
+  }, [])
 
-const features = [
-  { icon: '🎥', label: 'Record Video', sub: 'Evidence recording' },
-  { icon: '🗺️', label: 'Safe Route', sub: 'Navigate safely' },
-]
+  const handleActivate = () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start()
 
-const tabs = [
-  { icon: '🛡️', label: 'Safety Alerts' },
-  { icon: '👥', label: 'Trusted Contacts' },
-]
+    setIsActive(!isActive)
+    Alert.alert(
+      isActive ? '⛔ Deactivated' : '🛡️ Activated',
+      isActive
+        ? 'Safety mode is now OFF'
+        : 'Safety mode is now ON. Stay safe!'
+    )
+  }
 
-const SafeGuardHome: React.FC = () => {
+  interface NavigationItem {
+    id: number
+    label: string
+    icon: keyof typeof MaterialCommunityIcons.glyphMap
+    screen: string
+  }
+
+  const navigationItems: NavigationItem[] = [
+    { id: 1, label: 'Home', icon: 'home', screen: 'home' },
+    { id: 2, label: 'Safety', icon: 'shield-check', screen: 'safety' },
+    { id: 3, label: 'Call Logs', icon: 'phone', screen: 'callLogs' },
+    { id: 4, label: 'Trusted Contacts', icon: 'heart', screen: 'contacts' },
+  ]
+
+  const features: Array<{
+    id: number
+    title: string
+    icon: keyof typeof MaterialCommunityIcons.glyphMap
+    color: string
+    count: string
+    screen: string
+  }> = [
+    {
+      id: 1,
+      title: 'Trusted Contacts',
+      icon: 'heart',
+      color: COLORS.red,
+      count: '3',
+      screen: 'contacts',
+    },
+    {
+      id: 2,
+      title: 'Call Logs',
+      icon: 'phone',
+      color: COLORS.blue,
+      count: '12',
+      screen: 'callLogs',
+    },
+    {
+      id: 3,
+      title: 'GPS Location',
+      icon: 'map-marker',
+      color: COLORS.green,
+      count: 'Active',
+      screen: 'location',
+    },
+    {
+      id: 4,
+      title: 'Shake Detection',
+      icon: 'alert-circle',
+      color: COLORS.yellow,
+      count: 'Ready',
+      screen: 'shakeDetection',
+    },
+  ]
+
+  const quotes = [
+    "Your safety is your priority. We're here to protect you every step.",
+    'A woman is the full circle. Within her is the power to create, nurture, transform and heal.',
+    'Empowered women empower women. Stay strong, stay safe.',
+    'Your voice matters. Your safety matters. You matter.',
+    'Real strength is in knowing when to ask for help.',
+  ]
+
+  const renderDrawer = () => (
+    <View style={styles.drawer}>
+      <View style={styles.drawerHeader}>
+        <View style={styles.drawerProfileCircle}>
+          <MaterialCommunityIcons name="account" size={32} color={COLORS.purple} />
+        </View>
+        <Text style={styles.drawerName}>{userName}</Text>
+        <Text style={styles.drawerSubtitle}>women safety app</Text>
+      </View>
+
+      <View style={styles.drawerDivider} />
+
+      {navigationItems.map((item) => (
+        <TouchableOpacity
+          key={item.id}
+          style={styles.drawerItem}
+          onPress={() => {
+            drawerRef.current?.closeDrawer()
+            // ✅ Add routing
+            if (item.screen === 'home') {
+              router.push('/home')
+            } else if (item.screen === 'callLogs') {
+              router.push('/callLogs')
+            } else if (item.screen === 'contacts') {
+              router.push('/trusted')
+            }
+          }}
+        >
+          <MaterialCommunityIcons name={item.icon} size={22} color={COLORS.purple} />
+          <Text style={styles.drawerItemText}>{item.label}</Text>
+        </TouchableOpacity>
+      ))}
+
+      <View style={styles.drawerDivider} />
+
+      <TouchableOpacity style={styles.drawerItem}>
+        <MaterialCommunityIcons name="cog" size={22} color={COLORS.textSecondary} />
+        <Text style={styles.drawerItemText}>Settings</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.drawerItem}>
+        <MaterialCommunityIcons name="logout" size={22} color={COLORS.red} />
+        <Text style={[styles.drawerItemText, { color: COLORS.red }]}>Logout</Text>
+      </TouchableOpacity>
+    </View>
+  )
+
+  // ============ UPDATE FEATURE BOX CLICK ============
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bgTop} />
-      
-      <LinearGradient
-        colors={[COLORS.bgTop, COLORS.bgBottom]}
-        style={styles.background}
-      >
-        {/* Header */}
+    <DrawerLayoutAndroid
+      ref={drawerRef}
+      drawerWidth={280}
+      drawerPosition="left"
+      renderNavigationView={renderDrawer}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        {/* ============ HEADER ============ */}
         <View style={styles.header}>
-          <LinearGradient
-            colors={[COLORS.pink, COLORS.purple]}
-            style={styles.headerGradient}
+          <TouchableOpacity
+            onPress={() => drawerRef.current?.openDrawer()}
+            style={styles.menuButton}
           >
-            <View style={styles.headerContent}>
-              <Text style={styles.headerIcon}>🛡️</Text>
-              <Text style={styles.headerTitle}>ShadowSafe - AI</Text>
-            </View>
-          </LinearGradient>
-          <Text style={styles.headerSubtitle}>Stay Safe connected</Text>
+            <MaterialCommunityIcons name="menu" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+
+          <View style={styles.headerCenter}>
+            <Text style={styles.appName}>ShadowSafe</Text>
+            <Text style={styles.appSubtitle}>AI</Text>
+          </View>
+
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.iconButton}>
+              <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.text} />
+              <View style={styles.notificationBadge}>
+                <Text style={styles.badgeText}>2</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.iconButton}>
+              <View style={styles.profileCircle}>
+                <MaterialCommunityIcons name="account-circle" size={28} color={COLORS.purple} />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Status Cards */}
-          <View style={styles.section}>
-            {statusItems.map((item, index) => (
-              <View key={index} style={styles.statusCard}>
-                <View style={styles.statusRow}>
-                  <Text style={styles.statusLabel}>{item.label}</Text>
-                  <View style={[
-                    styles.statusBadge,
-                    { backgroundColor: item.color + '20' }
-                  ]}>
-                    <Text style={[styles.statusValue, { color: item.color }]}>
-                      {item.value}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.statusDesc}>
-                  Your safety features are being shared with your trusted circle
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* ============ GREETING SECTION ============ */}
+          <View style={styles.greetingCard}>
+            <View style={styles.greetingContent}>
+              <Text style={styles.greetingTitle}>👋 Welcome back, {userName}!</Text>
+              <Text style={styles.greetingSubtitle}>
+                Activate your safety mode to get instant alerts and emergency protection
+              </Text>
+            </View>
+
+            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+              <TouchableOpacity
+                style={[
+                  styles.activateButton,
+                  { backgroundColor: isActive ? COLORS.green : COLORS.red },
+                ]}
+                onPress={handleActivate}
+              >
+                <MaterialCommunityIcons
+                  name={isActive ? 'shield-check' : 'shield-alert'}
+                  size={24}
+                  color={COLORS.text}
+                />
+                <Text style={styles.activateButtonText}>
+                  {isActive ? 'Safety Active' : 'Tap to Activate'}
                 </Text>
-              </View>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+
+          {/* ============ FEATURE BOXES ============ */}
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+          <View style={styles.featureGrid}>
+            {features.map((feature) => (
+              <TouchableOpacity
+                key={feature.id}
+                style={styles.featureBox}
+                onPress={() => {
+                  // ✅ Add routing based on feature type
+                  if (feature.screen === 'contacts') {
+                    router.push('/trusted')
+                  } else if (feature.screen === 'callLogs') {
+                    router.push('/callLogs')
+                  } else if (feature.screen === 'location') {
+                    router.push('/location')
+                  } else if (feature.screen === 'shakeDetection') {
+                    router.push('/shake')
+                  }
+                }}
+              >
+                <View
+                  style={[
+                    styles.featureIconContainer,
+                    { backgroundColor: `${feature.color}20` },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={feature.icon}
+                    size={28}
+                    color={feature.color}
+                  />
+                </View>
+                <Text style={styles.featureTitle}>{feature.title}</Text>
+                <Text style={styles.featureCount}>{feature.count}</Text>
+              </TouchableOpacity>
             ))}
           </View>
 
-          {/* SOS Emergency */}
-          <View style={styles.sosSection}>
-            <View style={styles.sosHeader}>
-              <View style={styles.sosIconWrap}>
-                <Text style={styles.sosIcon}>🚨</Text>
-              </View>
-              <Text style={styles.sosTitle}>SOS Emergency</Text>
+          {/* ============ STATISTICS CARD ============ */}
+          <View style={styles.statsCard}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>24/7</Text>
+              <Text style={styles.statLabel}>Protection</Text>
             </View>
-            <Text style={styles.sosDesc}>
-              Press to send alert to your trusted contacts
-            </Text>
-            
-            <View style={styles.sosActions}>
-              {sosActions.map((action, index) => (
-                <TouchableOpacity key={index} style={styles.actionCard}>
-                  <Text style={styles.actionIcon}>{action.icon}</Text>
-                  <Text style={styles.actionTitle}>{action.label}</Text>
-                  <Text style={styles.actionSub}>{action.sub}</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>3</Text>
+              <Text style={styles.statLabel}>Trusted Contacts</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>100%</Text>
+              <Text style={styles.statLabel}>Private</Text>
             </View>
           </View>
 
-          {/* Features Grid */}
-          <View style={styles.featuresSection}>
-            <Text style={styles.sectionTitle}>Quick Features</Text>
-            <View style={styles.featuresGrid}>
-              {features.map((feature, index) => (
-                <TouchableOpacity key={index} style={styles.featureCard}>
-                  <Text style={styles.featureIcon}>{feature.icon}</Text>
-                  <Text style={styles.featureTitle}>{feature.label}</Text>
-                  <Text style={styles.featureSub}>{feature.sub}</Text>
-                </TouchableOpacity>
-              ))}
+          {/* ============ WOMEN SAFETY QUOTE ============ */}
+          <View style={styles.quoteSection}>
+            <Text style={styles.quoteTitle}>💪 Stay Empowered</Text>
+            <View style={styles.quoteCard}>
+              <MaterialCommunityIcons name="format-quote-open" size={28} color={COLORS.purple} />
+              <Text style={styles.quoteText}>
+                {quotes[Math.floor(Math.random() * quotes.length)]}
+              </Text>
+              <MaterialCommunityIcons
+                name="format-quote-close"
+                size={28}
+                color={COLORS.purple}
+                style={{ alignSelf: 'flex-end' }}
+              />
             </View>
           </View>
+
+          {/* ============ HELP SECTION ============ */}
+          <View style={styles.helpCard}>
+            <MaterialCommunityIcons name="help-circle" size={24} color={COLORS.blue} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.helpTitle}>Need Help?</Text>
+              <Text style={styles.helpText}>
+                Access our safety guides and emergency resources
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.border} />
+          </View>
+
+          <View style={{ height: 20 }} />
         </ScrollView>
-
-        {/* Bottom Tabs */}
-        <View style={styles.bottomTabs}>
-          {tabs.map((tab, index) => (
-            <TouchableOpacity key={index} style={styles.tab}>
-              <Text style={styles.tabIcon}>{tab.icon}</Text>
-              <Text style={styles.tabLabel}>{tab.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </LinearGradient>
-    </View>
+      </SafeAreaView>
+    </DrawerLayoutAndroid>
   )
 }
 
+export default Home
+
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: COLORS.bgTop,
+    backgroundColor: COLORS.dark,
   },
 
-  background: {
-    flex: 1,
-  },
-
+  // ============ HEADER ============
   header: {
-    paddingTop: 20,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-
-  headerGradient: {
-    height: 56,
-    borderRadius: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    shadowColor: '#DDA0DD',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-
-  headerIcon: {
-    fontSize: 20,
-    marginRight: 10,
-  },
-
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-
-  headerSubtitle: {
-    fontSize: 14,
-    color: COLORS.subText,
-    fontWeight: '600',
-  },
-
-  scroll: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-
-  section: {
-    gap: 12,
-    marginBottom: 20,
-  },
-
-  statusCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    padding: 18,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 5,
-  },
-
-  statusRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: COLORS.card,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
 
-  statusLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+  menuButton: {
+    padding: 8,
+  },
+
+  headerCenter: {
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  appName: {
+    fontSize: 20,
+    fontWeight: '800',
     color: COLORS.text,
   },
 
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
+  appSubtitle: {
+    fontSize: 12,
+    color: COLORS.purple,
+    fontWeight: '700',
   },
 
-  statusValue: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-
-  statusDesc: {
-    fontSize: 13,
-    color: COLORS.subText,
-    lineHeight: 18,
-  },
-
-  sosSection: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-
-  sosHeader: {
+  headerRight: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  iconButton: {
+    padding: 8,
+    position: 'relative',
+  },
+
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: COLORS.red,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  badgeText: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  profileCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${COLORS.purple}20`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // ============ DRAWER ============
+  drawer: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    paddingTop: 20,
+  },
+
+  drawerHeader: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+
+  drawerProfileCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: `${COLORS.purple}20`,
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
 
-  sosIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.red + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-
-  sosIcon: {
-    fontSize: 18,
-  },
-
-  sosTitle: {
+  drawerName: {
     fontSize: 18,
     fontWeight: '800',
     color: COLORS.text,
-    flex: 1,
   },
 
-  sosDesc: {
-    fontSize: 13,
-    color: COLORS.subText,
-    marginBottom: 16,
+  drawerSubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 4,
   },
 
-  sosActions: {
+  drawerDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 12,
+  },
+
+  drawerItem: {
     flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     gap: 12,
   },
 
-  actionCard: {
-    flex: 1,
-    backgroundColor: '#FFF8FE',
-    borderWidth: 1,
-    borderColor: COLORS.pink + '30',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
+  drawerItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
   },
 
-  actionIcon: {
-    fontSize: 24,
+  // ============ SCROLL VIEW ============
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+
+  // ============ GREETING CARD ============
+  greetingCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  greetingContent: {
+    marginBottom: 16,
+  },
+
+  greetingTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.text,
     marginBottom: 8,
   },
 
-  actionTitle: {
+  greetingSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+
+  activateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 10,
+    shadowColor: COLORS.purple,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  activateButtonText: {
     fontSize: 14,
     fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 2,
   },
 
-  actionSub: {
-    fontSize: 11,
-    color: COLORS.subText,
-  },
-
-  featuresSection: {
-    paddingBottom: 20,
-  },
-
+  // ============ SECTION TITLE ============
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: COLORS.text,
-    marginBottom: 14,
+    marginBottom: 12,
   },
 
-  featuresGrid: {
+  // ============ FEATURE GRID ============
+  featureGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
+    marginBottom: 20,
   },
 
-  featureCard: {
-    flex: 1,
+  featureBox: {
+    width: '48%',
     backgroundColor: COLORS.card,
     borderRadius: 18,
-    padding: 18,
+    padding: 16,
     alignItems: 'center',
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
 
-  featureIcon: {
-    fontSize: 22,
-    marginBottom: 8,
+  featureIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
   },
 
   featureTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 2,
-  },
-
-  featureSub: {
-    fontSize: 11,
-    color: COLORS.subText,
     textAlign: 'center',
-  },
-
-  bottomTabs: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.card,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    gap: 40,
-  },
-
-  tab: {
-    alignItems: 'center',
-  },
-
-  tabIcon: {
-    fontSize: 22,
     marginBottom: 4,
   },
 
-  tabLabel: {
-    fontSize: 11,
+  featureCount: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
     fontWeight: '600',
-    color: COLORS.subText,
+  },
+
+  // ============ STATISTICS ============
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.purple,
+    marginBottom: 4,
+  },
+
+  statLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+
+  statDivider: {
+    width: 1,
+    backgroundColor: COLORS.border,
+    marginHorizontal: 8,
+  },
+
+  // ============ QUOTE SECTION ============
+  quoteSection: {
+    marginBottom: 20,
+  },
+
+  quoteTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+
+  quoteCard: {
+    backgroundColor: `${COLORS.purple}10`,
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 2,
+    borderColor: `${COLORS.purple}30`,
+    alignItems: 'center',
+  },
+
+  quoteText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlign: 'center',
+    marginVertical: 12,
+    lineHeight: 20,
+  },
+
+  // ============ HELP CARD ============
+  helpCard: {
+    flexDirection: 'row',
+    backgroundColor: `${COLORS.blue}15`,
+    borderRadius: 18,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: `${COLORS.blue}30`,
+    marginBottom: 20,
+  },
+
+  helpTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+
+  helpText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
   },
 })
-
-export default SafeGuardHome

@@ -148,12 +148,12 @@ const Login = () => {
         >
           <View style={styles.card}>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>OTP Login</Text>
+              <Text style={styles.badgeText}>ShadowSafe - AI</Text>
             </View>
 
             <Text style={styles.title}>Welcome back</Text>
             <Text style={styles.subtitle}>
-              Apna phone number daalo aur secure OTP se login karo.
+              Enter your phone number to receive OTP and login to your account.
             </Text>
 
             <View style={styles.form}>
