@@ -1,32 +1,38 @@
-import express from "express";
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import cookieParser from "cookie-parser";
-import cors from "cors";
-import connectDB from "./src/config/db.config.js";
-import authRouter from "./src/routes/auth.routes.js";
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
+import authRoutes from './src/routes/auth.routes.js';
 
-dotenv.config({
-    path : "./.env"     //exact .env path
-});
+dotenv.config();
 
-const PORT = process.env.PORT || 5000
 const app = express();
 
+// Middleware
 app.use(cors({
-    origin : process.env.CROSS_ORIGIN,
-    credentials : true
-}))
-app.use(express.urlencoded({extended : true}));
-app.use(cookieParser());
+  origin: "*",
+}));
+
 app.use(express.json());
+app.use(cookieParser());
 
-app.use("/api",authRouter);
+// Routes
+app.use('/api', authRoutes);
 
-app.get("/shadow",(req,res)=>{
-    res.send("shadow-ai");
-})
-app.listen(PORT,()=>{
-    console.log("connected..");
-    connectDB();
-})
+// ✅ FIX: remove '*' here
+app.use((req, res) => {
+  res.status(404).json({
+    message: `Route not found: ${req.method} ${req.originalUrl}`
+  });
+});
+
+// MongoDB connection
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+
+const PORT = process.env.PORT || 8000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://10.252.189.103:${PORT}`);
+});

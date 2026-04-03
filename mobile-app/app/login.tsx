@@ -1,1015 +1,352 @@
-/* eslint-disable react/no-unescaped-entities */
-import React, { useRef, useState, useEffect, useCallback } from 'react'
+import React, { useMemo, useState } from 'react';
 import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-  Animated,
-  Dimensions,
-  ActivityIndicator,
-  Easing,
-  Alert,
-} from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { LinearGradient } from 'expo-linear-gradient'
-import Svg, { Path, Circle } from 'react-native-svg'
-import { useRouter } from 'expo-router'
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import { useNavigation } from '@react-navigation/native';
+import { router } from 'expo-router';
 
-const { width } = Dimensions.get('window')
+const BASE_URL = 'http://10.252.189.103:8000/api'; 
+// Example:
+// Android emulator -> http://10.0.2.2:5000/api/auth
+// iPhone physical device -> http://192.168.1.5:5000/api/auth
 
-// ============ API CONFIG ============
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.252.189.103:8000/api'
+const Login = () => {
+  const navigation = useNavigation();
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-// Add this validation
-if (!process.env.EXPO_PUBLIC_API_URL) {
-  console.warn('⚠️ EXPO_PUBLIC_API_URL not set, using localhost fallback')
-}
+  const cleanedPhone = useMemo(() => phone.replace(/\D/g, ''), [phone]);
+  const cleanedOtp = useMemo(() => otp.replace(/\D/g, ''), [otp]);
 
-const COLORS = {
-  bgTop: '#FDF6FB',
-  bgBottom: '#EEF3FF',
-  card: '#FFFFFF',
-  text: '#1F2A44',
-  subText: '#7C8192',
-  muted: '#A4A9B6',
-  border: '#E7E8F0',
-  pink: '#FF7CCB',
-  purple: '#B06CFF',
-  iconPink: '#FF69C7',
-  iconPurple: '#A855F7',
-  tileBg: '#FFFFFF',
-  tileBorder: '#ECECF4',
-  shadow: '#C9BEDD',
-  success: '#10B981',
-  error: '#EF4444',
-  gradientPink: '#FF80C4',
-  gradientPurple: '#A870FF',
-}
+  const isPhoneValid = cleanedPhone.length === 10 || cleanedPhone.length === 12;
+  const isOtpValid = cleanedOtp.length === 4;
 
-const featureItems = [
-  { emoji: '🆘', label: 'SOS Alert' },
-  { emoji: '📍', label: 'Live Location' },
-  { emoji: '👥', label: 'Trusted Circle' },
-]
-
-const ShieldIcon = () => (
-  <View style={styles.logoOuter}>
-    <LinearGradient
-      colors={[COLORS.iconPink, COLORS.iconPurple]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.logoGradient}
-    >
-      <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
-        <Path
-          d="M12 3L18 5.5V10.8C18 14.7 15.45 18.15 12 19.5C8.55 18.15 6 14.7 6 10.8V5.5L12 3Z"
-          stroke="#FFFFFF"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    </LinearGradient>
-  </View>
-)
-
-const AnimatedPulse = ({ size = 24, color = COLORS.purple }) => {
-  const pulseAnim = useRef(new Animated.Value(0)).current
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 1500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start()
-  }, [])
-
-  const pulseScale = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.4],
-  })
-
-  const pulseOpacity = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.5, 0],
-  })
-
-  return (
-    <Animated.View
-      style={[
-        styles.pulseContainer,
-        {
-          transform: [{ scale: pulseScale }],
-          opacity: pulseOpacity,
-        },
-      ]}
-    >
-      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <Circle cx="12" cy="12" r="10" fill={color} opacity="0.3" />
-      </Svg>
-    </Animated.View>
-  )
-}
-
-const OTPInputBox = ({
-  digit,
-  index,
-  isFocused,
-  onChange,
-  onKeyPress,
-  inputRef,
-  hasDigit,
-}: {
-  digit: string
-  index: number
-  isFocused: boolean
-  onChange: (value: string, index: number) => void
-  onKeyPress: (event: any, index: number) => void
-  inputRef: (ref: TextInput | null) => void
-  hasDigit: boolean
-}) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current
-  const borderAnim = useRef(new Animated.Value(0)).current
-
-  const animateIn = useCallback(() => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1.02,
-        useNativeDriver: true,
-        friction: 6,
-      }),
-      Animated.timing(borderAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: false,
-      }),
-    ]).start(() => {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 6,
-      }).start()
-    })
-  }, [])
-
-  const animateOut = useCallback(() => {
-    Animated.timing(borderAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: false,
-    }).start()
-  }, [])
-
-  useEffect(() => {
-    if (isFocused) animateIn()
-    else animateOut()
-  }, [isFocused])
-
-  const borderWidth = borderAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1.5, 2.5],
-  })
-
-  return (
-    <Animated.View
-      style={[
-        styles.otpInputContainer,
-        {
-          transform: [{ scale: scaleAnim }],
-        },
-      ]}
-    >
-      <Animated.View
-        style={[
-          styles.otpInputAnimated,
-          {
-            borderWidth,
-            shadowOpacity: hasDigit ? 0.3 : 0.1,
-          },
-        ]}
-      >
-        <TextInput
-          ref={inputRef}
-          style={styles.otpInput}
-          value={digit}
-          onChangeText={(value) => onChange(value, index)}
-          onKeyPress={(e) => onKeyPress(e, index)}
-          keyboardType="number-pad"
-          maxLength={1}
-          textAlign="center"
-          showSoftInputOnFocus={true}
-          selectTextOnFocus={true}
-          autoFocus={index === 0}
-        />
-        {hasDigit && <AnimatedPulse size={20} />}
-      </Animated.View>
-    </Animated.View>
-  )
-}
-
-const SafetyAuthUI: React.FC = () => {
-  const router = useRouter()
-  
-  // States
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState(['', '', '', ''])
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [focusedOtpIndex, setFocusedOtpIndex] = useState(0)
-  const [resendTimer, setResendTimer] = useState(0)
-  
-  // Refs for OTP inputs
-  const otpInputRefs = useRef<(TextInput | null)[]>([])
-
-  // Animations
-  const scaleAnim = useRef(new Animated.Value(0.96)).current
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const buttonAnim = useRef(new Animated.Value(1)).current
-  const otpSlideAnim = useRef(new Animated.Value(50)).current
-  const otpScaleAnim = useRef(new Animated.Value(0.8)).current
-  const phonePulse = useRef(new Animated.Value(0)).current
-  const errorShake = useRef(new Animated.Value(0)).current
-
-  // Initial animation
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 8,
-        tension: 45,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 450,
-        useNativeDriver: true,
-      }),
-    ]).start()
-
-    // Phone input pulse animation
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(phonePulse, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(phonePulse, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    )
-    pulseLoop.start()
-  }, [])
-
-  // OTP slide in animation
-  useEffect(() => {
-    if (step === 'otp') {
-      Animated.parallel([
-        Animated.spring(otpScaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 50,
-          useNativeDriver: true,
-        }),
-        Animated.timing(otpSlideAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start()
+  const requestOtp = async () => {
+    if (!isPhoneValid) {
+      setError('Phone number 10 ya 12 digits ka hona chahiye');
+      return;
     }
-  }, [step])
 
-  // Resend timer countdown
-  useEffect(() => {
-    if (resendTimer <= 0) return
-    
-    const interval = setInterval(() => {
-      setResendTimer(prev => prev - 1)
-    }, 1000)
-    
-    return () => clearInterval(interval)
-  }, [resendTimer])
-
-  // Error shake animation
-  const triggerErrorShake = () => {
-    Animated.sequence([
-      Animated.timing(errorShake, { toValue: 10, duration: 100, useNativeDriver: true }),
-      Animated.timing(errorShake, { toValue: -10, duration: 100, useNativeDriver: true }),
-      Animated.timing(errorShake, { toValue: 10, duration: 100, useNativeDriver: true }),
-      Animated.timing(errorShake, { toValue: 0, duration: 100, useNativeDriver: true }),
-    ]).start()
-  }
-
-  // ============ PHONE VALIDATION ============
-  const validatePhone = (phoneNum: string) => {
-    if (!phoneNum || phoneNum.length !== 10) {
-      setError('Please enter a valid 10-digit phone number')
-      triggerErrorShake()
-      return false
-    }
-    if (!/^\d+$/.test(phoneNum)) {
-      setError('Phone number should contain only digits')
-      triggerErrorShake()
-      return false
-    }
-    return true
-  }
-
-  // ============ SEND OTP - Backend Integration ============
-  const handleSendOtp = async () => {
     try {
-      setError('')
-      
-      if (!validatePhone(phone)) return
-      
-      setLoading(true)
-      
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-      
-      const response = await fetch(`${API_BASE_URL}/send-otp`, {
+      setLoading(true);
+      setError('');
+
+      const res = await fetch(`${BASE_URL}/send-otp`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/jsorn',
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          phone: `91${phone}`, // Indian country code
-        }),
-        signal: controller.signal,
-      })
-      
-      clearTimeout(timeoutId)
+        body: JSON.stringify({ phone: cleanedPhone }),
+      });
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || `HTTP Error: ${response.status}`)
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || 'OTP bhejne me problem aayi');
       }
 
-      const data = await response.json()
-      
-      setStep('otp')
-      setResendTimer(60) // 60 seconds resend timer
-      
-      setTimeout(() => {
-        otpInputRefs.current[0]?.focus()
-      }, 300)
+      setStep('otp');
 
-      Alert.alert('Success', 'OTP sent successfully!')
-
+      // Dev mode only, because backend is returning otp
+      if (data?.otp) {
+        Alert.alert('OTP Sent', `Demo OTP: ${data.otp}`);
+      } else {
+        Alert.alert('OTP Sent', 'OTP successfully send ho gaya');
+      }
     } catch (err: any) {
-      const errorMsg = err.message?.includes('Network') 
-        ? 'Network error. Check your internet connection & API URL.'
-        : err.message || 'Failed to send OTP. Please try again.'
-    
-      setError(errorMsg)
-      triggerErrorShake()
-      Alert.alert('Error', errorMsg)
-      
-      console.error('Send OTP Error:', err)
+      setError(err.message || 'Something went wrong');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  // ============ VERIFY OTP - Backend Integration ============
-  const handleVerifyOtp = async () => {
+  const verifyOtp = async () => {
+    if (!isPhoneValid) {
+      setError('Invalid phone number');
+      return;
+    }
+
+    if (!isOtpValid) {
+      setError('OTP 4 digits ka hona chahiye');
+      return;
+    }
+
     try {
-      setError('')
-      
-      const enteredOtp = otp.join('')
-      if (enteredOtp.length !== 4) {
-        setError('Please enter all 4 digits')
-        triggerErrorShake()
-        return
-      }
+      setLoading(true);
+      setError('');
 
-      setLoading(true)
-
-      const response = await fetch(`${API_BASE_URL}/verify-otp`, {
+      const res = await fetch(`${BASE_URL}/verify-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          phone: `91${phone}`,
-          otp: enteredOtp,
+          phone: cleanedPhone,
+          otp: cleanedOtp,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await res.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Invalid OTP')
+      if (!res.ok) {
+        throw new Error(data?.message || 'OTP verify nahi hua');
       }
 
-      // ============ STORE AUTH TOKEN ============
-      if (data.token) {
-        await AsyncStorage.setItem('authToken', data.token)
-      }
-      if (data.userId) {
-        await AsyncStorage.setItem('userId', data.userId)
+      if (data?.token) {
+        await SecureStore.setItemAsync('token', data.token);
       }
 
-      Alert.alert('Success', 'Logged in successfully!')
+      if (data?.userId) {
+        await SecureStore.setItemAsync('userId', data.userId);
+      }
+
+      await SecureStore.setItemAsync('phone', cleanedPhone);
+
+      Alert.alert('Success', 'Login successful');
       
-      // Navigate to home
-      setTimeout(() => {
-        router.replace('/home')
-      }, 500)
-
+      // yahan navigation laga do:
+       router.push('/home');
     } catch (err: any) {
-      const errorMsg = err.message || 'Verification failed. Please try again.'
-      setError(errorMsg)
-      triggerErrorShake()
-      Alert.alert('Error', errorMsg)
+      setError(err.message || 'Verification failed');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  // ============ RESEND OTP ============
-  const handleResendOtp = async () => {
-    if (resendTimer > 0) return
-    
-    await handleSendOtp()
-  }
-
-  // ============ GO BACK ============
-  const handleGoBack = () => {
-    setStep('phone')
-    setOtp(['', '', '', ''])
-    setError('')
-    setResendTimer(0)
-  }
-
-  // Handle OTP input change with auto-focus next
-  const handleOtpChange = (value: string, index: number) => {
-    if (!/^\d*$/.test(value)) return
-    
-    const newOtp = [...otp]
-    newOtp[index] = value.slice(-1)
-    setOtp(newOtp)
-    
-    // Auto focus next input if current has value and not last
-    if (value && index < 3) {
-      setFocusedOtpIndex(index + 1)
-      otpInputRefs.current[index + 1]?.focus()
-    }
-    
-    // Auto verify if all 4 digits filled
-    if (newOtp.join('').length === 4) {
-      setTimeout(() => {
-        handleVerifyOtp()
-      }, 100)
-    }
-  }
-
-  // Handle backspace to move to previous input
-  const handleOtpKeyPress = (event: any, index: number) => {
-    if (event.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
-      setFocusedOtpIndex(index - 1)
-      otpInputRefs.current[index - 1]?.focus()
-    }
-  }
-
-  // Button press animations
-  const onPressIn = () => {
-    Animated.spring(buttonAnim, {
-      toValue: 0.97,
-      useNativeDriver: true,
-      friction: 7,
-      tension: 120,
-    }).start()
-  }
-
-  const onPressOut = () => {
-    Animated.spring(buttonAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      friction: 7,
-      tension: 120,
-    }).start()
-  }
+  const goBackToPhone = () => {
+    setStep('phone');
+    setOtp('');
+    setError('');
+  };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <LinearGradient
-        colors={[COLORS.bgTop, COLORS.bgBottom]}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        style={styles.background}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.topGlow} />
-        <View style={styles.bottomGlow} />
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.card}>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>OTP Login</Text>
+            </View>
 
-        <View style={styles.screen}>
-          <Animated.View
-            style={[
-              styles.cardWrap,
-              {
-                opacity: fadeAnim,
-                transform: [
-                  { scale: scaleAnim },
-                  { translateX: errorShake }
-                ],
-              },
-            ]}
-          >
-            <View style={styles.card}>
-              <ShieldIcon />
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>
+              Apna phone number daalo aur secure OTP se login karo.
+            </Text>
 
-              <Text style={styles.title}>ShadowSafe - AI</Text>
-              <Text style={styles.subtitle}>Your Safety Companion</Text>
+            <View style={styles.form}>
+              <Text style={styles.label}>Phone Number</Text>
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Enter 10 or 12 digit phone"
+                placeholderTextColor="#7C8BA1"
+                keyboardType="phone-pad"
+                maxLength={12}
+                editable={!loading && step === 'phone'}
+                style={[
+                  styles.input,
+                  step === 'otp' && styles.inputDisabled,
+                ]}
+              />
 
-              {/* Error Message */}
-              {error && (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>⚠️ {error}</Text>
-                </View>
-              )}
-
-              {/* Phone Number Step */}
-              {step === 'phone' && (
-                <View style={styles.formBlock}>
-                  <Text style={styles.label}>Mobile Number</Text>
-
-                  <Animated.View
-                    style={[
-                      styles.inputWrap,
-                      {
-                        borderWidth: phonePulse.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [1, 1.8],
-                        }),
-                      },
-                    ]}
-                  >
-                    <Text style={styles.inputIcon}>📞</Text>
-                    <Text style={styles.countryCode}>+91</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Enter your mobile number"
-                      placeholderTextColor={COLORS.muted}
-                      keyboardType="phone-pad"
-                      maxLength={10}
-                      value={phone}
-                      onChangeText={(text) => {
-                        setPhone(text)
-                        setError('')
-                      }}
-                      autoFocus
-                      editable={!loading}
-                    />
-                  </Animated.View>
-
-                  <Text style={styles.helper}>
-                    We'll send you a verification code
-                  </Text>
-
-                  <Animated.View
-                    style={{
-                      transform: [{ scale: buttonAnim }],
-                    }}
-                  >
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={handleSendOtp}
-                      onPressIn={onPressIn}
-                      onPressOut={onPressOut}
-                      style={styles.buttonTouch}
-                      disabled={loading || phone.length !== 10}
-                    >
-                      <LinearGradient
-                        colors={loading || phone.length !== 10
-                          ? [COLORS.muted, COLORS.muted] 
-                          : [COLORS.gradientPink, COLORS.gradientPurple]}
-                        start={{ x: 0, y: 0.2 }}
-                        end={{ x: 1, y: 0.8 }}
-                        style={styles.button}
-                      >
-                        {loading ? (
-                          <ActivityIndicator color="#FFF" size="small" />
-                        ) : (
-                          <Text style={styles.buttonText}>Send OTP</Text>
-                        )}
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </Animated.View>
-
-                  <Text style={styles.terms}>
-                    By continuing, you agree to our Terms of Service and{'\n'}
-                    Privacy Policy
-                  </Text>
-                </View>
-              )}
-
-              {/* OTP Step */}
               {step === 'otp' && (
-                <Animated.View
-                  style={[
-                    styles.formBlock,
-                    {
-                      transform: [
-                        { translateY: otpSlideAnim },
-                        { scale: otpScaleAnim },
-                      ],
-                    },
-                  ]}
-                >
-                  <TouchableOpacity 
-                    style={styles.backButton} 
-                    onPress={handleGoBack}
-                    activeOpacity={0.7}
-                    disabled={loading}
-                  >
-                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={styles.backIcon}>
-                      <Path
-                        d="M15 18L9 12L15 6"
-                        stroke={COLORS.purple}
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                    <Text style={styles.backText}>Back</Text>
-                  </TouchableOpacity>
-
-                  <Text style={styles.label}>Enter Verification Code</Text>
-                  <Text style={styles.helper}>
-                    Sent to +91 {phone.slice(0, 3)}***{phone.slice(-3)}
-                  </Text>
-
-                  <View style={styles.otpContainer}>
-                    {otp.map((digit, index) => (
-                      <OTPInputBox
-                        key={index}
-                        digit={digit}
-                        index={index}
-                        isFocused={focusedOtpIndex === index}
-                        onChange={handleOtpChange}
-                        onKeyPress={(e) => handleOtpKeyPress(e, index)}
-                        inputRef={(ref) => {
-                          otpInputRefs.current[index] = ref
-                        }}
-                        hasDigit={!!digit}
-                      />
-                    ))}
+                <>
+                  <View style={styles.otpHeader}>
+                    <Text style={styles.label}>OTP</Text>
+                    <Pressable onPress={goBackToPhone}>
+                      <Text style={styles.changeText}>Change number</Text>
+                    </Pressable>
                   </View>
 
-                  <Animated.View
-                    style={{
-                      transform: [{ scale: buttonAnim }],
-                    }}
-                  >
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={handleVerifyOtp}
-                      onPressIn={onPressIn}
-                      onPressOut={onPressOut}
-                      style={styles.buttonTouch}
-                      disabled={loading}
-                    >
-                      <LinearGradient
-                        colors={loading 
-                          ? [COLORS.muted, COLORS.muted]
-                          : [COLORS.gradientPink, COLORS.gradientPurple]}
-                        start={{ x: 0, y: 0.2 }}
-                        end={{ x: 1, y: 0.8 }}
-                        style={styles.button}
-                      >
-                        {loading ? (
-                          <ActivityIndicator color="#FFF" size="small" />
-                        ) : (
-                          <Text style={styles.buttonText}>Verify & Continue</Text>
-                        )}
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </Animated.View>
+                  <TextInput
+                    value={otp}
+                    onChangeText={setOtp}
+                    placeholder="Enter 4 digit OTP"
+                    placeholderTextColor="#7C8BA1"
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    editable={!loading}
+                    style={styles.input}
+                  />
+                </>
+              )}
 
-                  <TouchableOpacity 
-                    style={styles.resendContainer}
-                    onPress={handleResendOtp}
-                    disabled={resendTimer > 0}
-                  >
-                    <Text style={[
-                      styles.resend,
-                      resendTimer > 0 && styles.resendDisabled
-                    ]}>
-                      {resendTimer > 0 
-                        ? `Resend in ${resendTimer}s`
-                        : "Didn't receive? Resend"
-                      }
-                    </Text>
-                  </TouchableOpacity>
-                </Animated.View>
+              {!!error && <Text style={styles.errorText}>{error}</Text>}
+
+              {step === 'phone' ? (
+                <Pressable
+                  style={[
+                    styles.button,
+                    (!isPhoneValid || loading) && styles.buttonDisabled,
+                  ]}
+                  onPress={requestOtp}
+                  disabled={!isPhoneValid || loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Send OTP</Text>
+                  )}
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={[
+                    styles.button,
+                    (!isOtpValid || loading) && styles.buttonDisabled,
+                  ]}
+                  onPress={verifyOtp}
+                  disabled={!isOtpValid || loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Verify OTP</Text>
+                  )}
+                </Pressable>
               )}
             </View>
-          </Animated.View>
 
-          <View style={styles.bottomTiles}>
-            {featureItems.map((item, index) => (
-              <TouchableOpacity
-                key={item.label}
-                activeOpacity={0.85}
-                style={styles.tile}
-              >
-                <Text style={styles.tileEmoji}>{item.emoji}</Text>
-                <Text style={styles.tileText}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
+            <Text style={styles.footerText}>
+              Continue karke tum OTP based authentication use kar rahe ho.
+            </Text>
           </View>
-        </View>
-      </LinearGradient>
-    </KeyboardAvoidingView>
-  )
-}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+};
+
+export default Login;
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#0B1220',
+  },
   container: {
-    flex: 1,
-    backgroundColor: COLORS.bgTop,
-  },
-  background: {
-    flex: 1,
-  },
-  screen: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 24,
-  },
-  topGlow: {
-    position: 'absolute',
-    top: 80,
-    right: -30,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#FFD8F0',
-    opacity: 0.28,
-  },
-  bottomGlow: {
-    position: 'absolute',
-    bottom: 110,
-    left: -40,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: '#DDE7FF',
-    opacity: 0.45,
-  },
-  cardWrap: {
-    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#0B1220',
   },
   card: {
-    width: '100%',
-    maxWidth: 330,
-    backgroundColor: COLORS.card,
-    borderRadius: 26,
-    paddingHorizontal: 22,
-    paddingTop: 26,
-    paddingBottom: 20,
-    alignSelf: 'center',
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.22,
-    shadowRadius: 26,
-    elevation: 10,
+    backgroundColor: '#121A2B',
+    borderRadius: 24,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#1E293B',
   },
-  logoOuter: {
-    alignItems: 'center',
+  badge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#1D4ED8',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
     marginBottom: 16,
   },
-  logoGradient: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#CF7BEF',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    elevation: 7,
+  badgeText: {
+    color: '#DBEAFE',
+    fontSize: 12,
+    fontWeight: '700',
   },
   title: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: '800',
-    color: COLORS.text,
-    textAlign: 'center',
+    color: '#F8FAFC',
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    color: COLORS.subText,
-    textAlign: 'center',
-    marginTop: 4,
+    fontSize: 15,
+    color: '#94A3B8',
+    lineHeight: 22,
     marginBottom: 24,
   },
-  formBlock: {
-    gap: 12,
+  form: {
+    gap: 14,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4C556A',
-  },
-  inputWrap: {
-    height: 48,
-    borderColor: COLORS.border,
-    borderRadius: 14,
-    backgroundColor: '#FFFDFE',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  inputIcon: {
-    fontSize: 15,
-    marginRight: 10,
-    opacity: 0.7,
-  },
-  countryCode: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginRight: 4,
+    color: '#E2E8F0',
+    marginBottom: 8,
   },
   input: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.text,
+    height: 54,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#F8FAFC',
+    marginBottom: 4,
   },
-  helper: {
-    fontSize: 12,
-    color: COLORS.subText,
-    marginTop: 2,
+  inputDisabled: {
+    opacity: 0.6,
   },
-  errorContainer: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.error,
-    marginBottom: 8,
+  otpHeader: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  errorText: {
-    fontSize: 12,
-    color: COLORS.error,
+  changeText: {
+    color: '#60A5FA',
+    fontSize: 13,
     fontWeight: '600',
   },
-  otpContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  otpInputContainer: {
-    flex: 1,
-  },
-  otpInputAnimated: {
-    flex: 1,
-    height: 60,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    backgroundColor: '#FFFDFE',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.purple,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  otpInput: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: COLORS.text,
-    textAlign: 'center',
-    width: '100%',
-    height: '100%',
-    textAlignVertical: 'center',
-  },
-  pulseContainer: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    right: 4,
-    bottom: 4,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-  },
-  backIcon: {
-    marginRight: 6,
-  },
-  backText: {
-    fontSize: 14,
-    color: COLORS.purple,
-    fontWeight: '700',
-  },
-  buttonTouch: {
-    marginTop: 12,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
   button: {
-    height: 50,
-    borderRadius: 14,
+    height: 54,
+    backgroundColor: '#2563EB',
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  terms: {
-    marginTop: 16,
-    fontSize: 11.5,
-    lineHeight: 18,
-    color: COLORS.subText,
-    textAlign: 'center',
-    paddingHorizontal: 8,
-  },
-  resendContainer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  resend: {
-    fontSize: 13,
-    color: COLORS.purple,
+    fontSize: 16,
     fontWeight: '700',
   },
-  resendDisabled: {
-    color: COLORS.muted,
+  errorText: {
+    color: '#FCA5A5',
+    fontSize: 13,
+    marginTop: 2,
   },
-  bottomTiles: {
-    marginTop: 18,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  tile: {
-    flex: 1,
-    minHeight: 74,
-    backgroundColor: COLORS.tileBg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.tileBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#D6D9E8',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  tileEmoji: {
-    fontSize: 20,
-    marginBottom: 6,
-  },
-  tileText: {
-    fontSize: width < 360 ? 10.5 : 11.5,
-    color: '#4A5368',
-    fontWeight: '600',
+  footerText: {
+    color: '#64748B',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 20,
     textAlign: 'center',
   },
-})
-
-export default SafetyAuthUI
+});
