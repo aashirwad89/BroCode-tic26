@@ -1,4 +1,3 @@
-// hooks/useShakeAudio.ts
 import { Accelerometer } from 'expo-sensors';
 import { Audio } from 'expo-av';
 import { useEffect, useRef } from 'react';
@@ -8,7 +7,7 @@ const SHAKE_THRESHOLD = 1.5;
 
 export default function useShakeAudio() {
   const lastShake = useRef(0);
-  const recordingRef = useRef<any>(null);
+  const recordingRef = useRef<Audio.Recording | null>(null);
 
   useEffect(() => {
     Accelerometer.setUpdateInterval(300);
@@ -31,44 +30,82 @@ export default function useShakeAudio() {
 
   const startRecording = async () => {
     try {
+      if (recordingRef.current) return; // prevent duplicate
+
+      console.log("🎤 Starting recording...");
+
       await Audio.requestPermissionsAsync();
 
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
       const recording = new Audio.Recording();
+
       await recording.prepareToRecordAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
 
       await recording.startAsync();
+
       recordingRef.current = recording;
+
+      console.log("✅ Recording started");
 
       setTimeout(stopRecording, 10000);
 
     } catch (err) {
-      console.log(err);
+      console.log("❌ Start error:", err);
     }
   };
 
   const stopRecording = async () => {
-    const recording = recordingRef.current;
-    if (!recording) return;
+    try {
+      const recording = recordingRef.current;
+      if (!recording) return;
 
-    await recording.stopAndUnloadAsync();
-    const uri = recording.getURI();
+      console.log("⏹ Stopping recording...");
 
-    if (uri) uploadAudio(uri);
+      await recording.stopAndUnloadAsync();
+
+      const uri = recording.getURI();
+
+      console.log("📁 Saved URI:", uri);
+
+      recordingRef.current = null;
+
+      if (uri) uploadAudio(uri);
+
+    } catch (err) {
+      console.log("❌ Stop error:", err);
+    }
   };
 
   const uploadAudio = async (uri: string) => {
-    const formData = new FormData();
+    try {
+      console.log("📡 Uploading audio...");
 
-    formData.append('audio', {
-      uri,
-      name: 'audio.m4a',
-      type: 'audio/m4a',
-    } as any);
+      const formData = new FormData();
 
-    await axios.post("http://YOUR_IP:8000/api/audio/upload", formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+      formData.append('audio', {
+        uri,
+        name: 'audio.m4a',
+        type: 'audio/m4a',
+      } as any);
+
+      const res = await axios.post(
+        "http://10.252.189.103:8000/api/aud/audio/upload", // FIXED URL
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
+
+      console.log("🔥 Upload success:", res.data);
+
+    } catch (err) {
+      console.log("❌ Upload error:", err);
+    }
   };
 }

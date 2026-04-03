@@ -79,9 +79,9 @@ const Home = () => {
 
   const navigationItems: NavigationItem[] = [
     { id: 1, label: 'Home', icon: 'home', screen: 'home' },
-    { id: 2, label: 'Records', icon: 'book', screen: 'records' },
+    { id: 2, label: 'Recent Records', icon: 'book', screen: 'records' },
     { id: 3, label: 'AI Assistant', icon: 'robot', screen: 'home' },
-    { id: 4, label: 'Safety', icon: 'shield-check', screen: 'safety' },
+    { id: 4, label: 'Safety Tips', icon: 'shield-check', screen: 'safety' },
     { id: 5, label: 'Call Logs', icon: 'phone', screen: 'callLogs' },
     { id: 6, label: 'Trusted Contacts', icon: 'heart', screen: 'contacts' },
   ]
@@ -107,7 +107,7 @@ const Home = () => {
       title: 'Call Logs',
       icon: 'phone',
       color: COLORS.blue,
-      count: '12',
+      count: '4',
       screen: 'callLogs',
     },
     {
@@ -142,11 +142,11 @@ const Home = () => {
         <View style={styles.drawerProfileCircle}>
           <MaterialCommunityIcons name="account" size={32} color={COLORS.purple} />
         </View>
-        <Text style={styles.drawerName}>{userName}</Text>
-        <Text style={styles.drawerSubtitle}>women safety app</Text>
+        <Text style={styles.drawerName}>Hello 👋</Text>
+        <Text style={styles.drawerSubtitle}>ShadowSafe - AI</Text>
       </View>
 
-      <View style={styles.drawerDivider} />
+    
 
       {navigationItems.map((item) => (
         <TouchableOpacity
@@ -169,17 +169,66 @@ const Home = () => {
         </TouchableOpacity>
       ))}
 
-      <View style={styles.drawerDivider} />
+  
 
-      <TouchableOpacity style={styles.drawerItem}>
-        <MaterialCommunityIcons name="cog" size={22} color={COLORS.textSecondary} />
-        <Text style={styles.drawerItemText}>Settings</Text>
-      </TouchableOpacity>
+      <View style={styles.drawerFooter}>
+        <TouchableOpacity 
+          style={styles.footerItem}
+          onPress={() => {
+            drawerRef.current?.closeDrawer()
+            Alert.alert('Terms & Conditions', 'Read our terms and conditions here')
+          }}
+        >
+          <MaterialCommunityIcons name="file-document-outline" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.footerItemText}>Terms & Conditions</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.drawerItem}>
-        <MaterialCommunityIcons name="logout" size={22} color={COLORS.red} />
-        <Text style={[styles.drawerItemText, { color: COLORS.red }]}>Logout</Text>
-      </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.footerItem}
+          onPress={() => {
+            drawerRef.current?.closeDrawer()
+            Alert.alert('Privacy Policy', 'Read our privacy policy here')
+          }}
+        >
+          <MaterialCommunityIcons name="lock-outline" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.footerItemText}>Privacy Policy</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.footerItem}
+          onPress={() => {
+            drawerRef.current?.closeDrawer()
+            Alert.alert('About Us', 'Learn more about ShadowSafe AI')
+          }}
+        >
+          <MaterialCommunityIcons name="information-outline" size={18} color={COLORS.textSecondary} />
+          <Text style={styles.footerItemText}>About Us</Text>
+        </TouchableOpacity>
+
+        <View style={styles.drawerDivider} />
+
+        <TouchableOpacity 
+          style={styles.logoutItem}
+          onPress={() => {
+            Alert.alert('Logout', 'Are you sure you want to logout?', [
+              { text: 'Cancel' },
+              {
+                text: 'Logout',
+                onPress: () => {
+                  drawerRef.current?.closeDrawer()
+                  router.replace('/login')
+                },
+                style: 'destructive',
+              },
+            ])
+          }}
+        >
+          <MaterialCommunityIcons name="logout" size={18} color={COLORS.red} />
+          <Text style={[styles.footerItemText, { color: COLORS.red }]}>Logout</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.versionText}>v1.0.0</Text>
+      </View>
     </View>
   )
 
@@ -678,5 +727,49 @@ const styles = StyleSheet.create({
   helpText: {
     fontSize: 12,
     color: COLORS.textSecondary,
+  },
+
+  // ============ DRAWER FOOTER ============
+  drawerFooter: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 16,
+    paddingHorizontal: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+
+  footerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 12,
+    borderRadius: 12,
+    marginBottom: 6,
+  },
+
+  footerItemText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+
+  logoutItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 12,
+    borderRadius: 12,
+    marginVertical: 8,
+  },
+
+  versionText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+    opacity: 0.6,
   },
 })

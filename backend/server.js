@@ -4,6 +4,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import authRoutes from './src/routes/auth.routes.js';
+import audioRoutes from './src/routes/audio.routes.js'; 
 
 dotenv.config();
 
