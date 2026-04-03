@@ -17,8 +17,13 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+app.use('/uploads', express.static('uploads'));
+
 // Routes
 app.use('/api', authRoutes);
+
+// routes
+app.use('/api/aud', audioRoutes);
 
 // ✅ FIX: remove '*' here
 app.use((req, res) => {

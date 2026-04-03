@@ -79,9 +79,11 @@ const Home = () => {
 
   const navigationItems: NavigationItem[] = [
     { id: 1, label: 'Home', icon: 'home', screen: 'home' },
-    { id: 2, label: 'Safety', icon: 'shield-check', screen: 'safety' },
-    { id: 3, label: 'Call Logs', icon: 'phone', screen: 'callLogs' },
-    { id: 4, label: 'Trusted Contacts', icon: 'heart', screen: 'contacts' },
+    { id: 2, label: 'Records', icon: 'book', screen: 'records' },
+    { id: 3, label: 'AI Assistant', icon: 'robot', screen: 'home' },
+    { id: 4, label: 'Safety', icon: 'shield-check', screen: 'safety' },
+    { id: 5, label: 'Call Logs', icon: 'phone', screen: 'callLogs' },
+    { id: 6, label: 'Trusted Contacts', icon: 'heart', screen: 'contacts' },
   ]
 
   const features: Array<{
