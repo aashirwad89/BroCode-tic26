@@ -5,7 +5,7 @@ const location = () => {
   return (
     <View>
       <Text>location</Text>
-    </View>
+    </View> 
   )
 }
 

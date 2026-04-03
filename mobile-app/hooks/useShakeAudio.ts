@@ -4,23 +4,57 @@ import { useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const SHAKE_THRESHOLD = 1.5;
+const REQUIRED_SHAKES = 4;
+const TIME_WINDOW = 4000; // 4 sec
 
 export default function useShakeAudio() {
-  const lastShake = useRef(0);
   const recordingRef = useRef<Audio.Recording | null>(null);
+
+  const shakeCount = useRef(0);
+  const firstShakeTime = useRef(0);
+  const lastShakeTime = useRef(0);
 
   useEffect(() => {
     Accelerometer.setUpdateInterval(300);
 
-    const sub = Accelerometer.addListener(async ({ x, y, z }) => {
-      const force = Math.sqrt(x*x + y*y + z*z);
+    const sub = Accelerometer.addListener(({ x, y, z }) => {
+      const force = Math.sqrt(x * x + y * y + z * z);
+      const now = Date.now();
 
       if (force > SHAKE_THRESHOLD) {
-        const now = Date.now();
 
-        if (now - lastShake.current > 5000) {
-          lastShake.current = now;
-          startRecording();
+        // 🔥 debounce (avoid multiple counts in same shake)
+        if (now - lastShakeTime.current < 500) return;
+        lastShakeTime.current = now;
+
+        // first shake
+        if (shakeCount.current === 0) {
+          firstShakeTime.current = now;
+        }
+
+        shakeCount.current += 1;
+
+        console.log("📳 Shake count:", shakeCount.current);
+
+        // check within time window
+        if (now - firstShakeTime.current <= TIME_WINDOW) {
+
+          if (shakeCount.current >= REQUIRED_SHAKES) {
+            console.log("🔥 Valid shake pattern detected");
+
+            // reset before recording
+            shakeCount.current = 0;
+            firstShakeTime.current = 0;
+
+            startRecording();
+          }
+
+        } else {
+          // ⏱ reset if time exceeded
+          console.log("⏱ Reset shake count");
+
+          shakeCount.current = 1;
+          firstShakeTime.current = now;
         }
       }
     });
@@ -30,7 +64,7 @@ export default function useShakeAudio() {
 
   const startRecording = async () => {
     try {
-      if (recordingRef.current) return; // prevent duplicate
+      if (recordingRef.current) return;
 
       console.log("🎤 Starting recording...");
 
@@ -95,7 +129,7 @@ export default function useShakeAudio() {
       } as any);
 
       const res = await axios.post(
-        "http://10.252.189.103:8000/api/aud/audio/upload", // FIXED URL
+        "http://10.252.189.103:8000/api/aud/audio/upload", // ✅ FIXED
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },
