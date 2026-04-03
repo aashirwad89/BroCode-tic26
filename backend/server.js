@@ -5,6 +5,11 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import authRoutes from './src/routes/auth.routes.js';
 import audioRoutes from './src/routes/audio.routes.js'; 
+import { locationSocket } from "./sockets/location.socket.js";
+
+const http = require*('http');
+const Server = http.createServer(app);
+
 
 dotenv.config();
 
@@ -17,6 +22,13 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
+
+const io = new Server(server, {
+  cors: { origin: "*" },
+});
+
+
+locationSocket(io);
 
 app.use('/uploads', express.static('uploads'));
 
