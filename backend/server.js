@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 
 import authRoutes from './src/routes/auth.routes.js';
 import audioRoutes from './src/routes/audio.routes.js'; 
+import trustedContactsRoutes from './src/routes/trustedContacts.routes.js'; // ✅ NEW
 import { locationSocket } from "./sockets/location.socket.js";
 import locationRoutes from './src/routes/location.routes.js';
 
@@ -42,6 +43,7 @@ app.use('/uploads', express.static('uploads'));
 app.use('/api', authRoutes);
 app.use('/api/aud', audioRoutes);
 app.use('/api/location', locationRoutes);
+app.use('/api/trusted-contacts', trustedContactsRoutes); // ✅ NEW - Trusted Contacts Route
 
 // 404 handler
 app.use((req, res) => {

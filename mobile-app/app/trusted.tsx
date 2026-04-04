@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+/* eslint-disable @typescript-eslint/array-type */
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   StyleSheet,
   Text,
@@ -10,9 +11,13 @@ import {
   Alert,
   Modal,
   TextInput,
+  ActivityIndicator,
+  RefreshControl,
+  Linking,
 } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
+import axios from 'axios'
 
 const COLORS = {
   dark: '#0B1220',
@@ -25,37 +30,141 @@ const COLORS = {
   green: '#10B981',
 }
 
+// ============ API BASE URL ============
+const API_BASE_URL = 'http://10.252.189.103:8000/api'
+
 const TrustedContacts = () => {
   const router = useRouter()
-  const [contacts, setContacts] = useState([
-    { id: 1, name: 'Mom', phone: '9876543210' },
-    { id: 2, name: 'Sister', phone: '9123456789' },
-    { id: 3, name: 'Best Friend', phone: '8765432109' },
-  ])
+  const [contacts, setContacts] = useState<Array<{ _id: string; name: string; phone: string }>>([])
+  const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [newContact, setNewContact] = useState({ name: '', phone: '' })
+  const [addingContact, setAddingContact] = useState(false)
 
-  const handleAddContact = () => {
+  // ============ FETCH CONTACTS ============
+  const fetchContacts = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await axios.get(`${API_BASE_URL}/trusted-contacts`)
+      if (response.data.success) {
+        setContacts(response.data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching contacts:', error)
+      Alert.alert('Error', 'Failed to fetch contacts')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // ============ REFRESH CONTACTS ============
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true)
+      const response = await axios.get(`${API_BASE_URL}/trusted-contacts`)
+      if (response.data.success) {
+        setContacts(response.data.data)
+      }
+    } catch (error) {
+      console.error('Error refreshing contacts:', error)
+      Alert.alert('Error', 'Failed to refresh contacts')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // ============ LOAD CONTACTS ON SCREEN FOCUS ============
+  useFocusEffect(
+    useCallback(() => {
+      fetchContacts()
+    }, [fetchContacts])
+  )
+
+  // ============ ADD CONTACT ============
+  const handleAddContact = async () => {
     if (!newContact.name || !newContact.phone) {
       Alert.alert('Error', 'Please fill all fields')
       return
     }
 
-    setContacts([...contacts, { id: Date.now(), ...newContact }])
-    setNewContact({ name: '', phone: '' })
-    setModalVisible(false)
-    Alert.alert('Success', 'Contact added successfully')
+    // Basic phone validation (10 digits)
+    const phoneRegex = /^[0-9]{10}$/
+    if (!phoneRegex.test(newContact.phone.replace(/\D/g, ''))) {
+      Alert.alert('Error', 'Please enter a valid 10-digit phone number')
+      return
+    }
+
+    try {
+      setAddingContact(true)
+      const response = await axios.post(`${API_BASE_URL}/trusted-contacts`, {
+        name: newContact.name.trim(),
+        phone: newContact.phone.trim(),
+      })
+
+      if (response.data.success) {
+        setContacts([response.data.data, ...contacts])
+        setNewContact({ name: '', phone: '' })
+        setModalVisible(false)
+        Alert.alert('Success', 'Contact added successfully')
+      }
+    } catch (error) {
+      console.error('Error adding contact:', error)
+      const errorMessage =
+        (error as any).response?.data?.message || 'Failed to add contact'
+      Alert.alert('Error', errorMessage)
+    } finally {
+      setAddingContact(false)
+    }
   }
 
-  const handleDeleteContact = (id: number) => {
-    Alert.alert('Delete Contact', 'Are you sure?', [
+  // ============ DELETE CONTACT ============
+  const handleDeleteContact = (id: string, contactName: string) => {
+    Alert.alert('Delete Contact', `Are you sure you want to delete ${contactName}?`, [
       { text: 'Cancel', onPress: () => {} },
       {
         text: 'Delete',
-        onPress: () => setContacts(contacts.filter((c) => c.id !== id)),
+        onPress: async () => {
+          try {
+            const response = await axios.delete(
+              `${API_BASE_URL}/trusted-contacts/${id}`
+            )
+            if (response.data.success) {
+              setContacts(contacts.filter((c) => c._id !== id))
+              Alert.alert('Success', 'Contact deleted successfully')
+            }
+          } catch (error) {
+            console.error('Error deleting contact:', error)
+            Alert.alert('Error', 'Failed to delete contact')
+          }
+        },
         style: 'destructive',
       },
     ])
+  }
+
+  // ============ CALL CONTACT - Open Dialer ============
+  const handleCallContact = async (phoneNumber: string, contactName: string) => {
+    try {
+      // ✅ Format phone number with country code
+      const formattedNumber = phoneNumber.startsWith('+') 
+        ? phoneNumber 
+        : `+91${phoneNumber}`
+      
+      const dialerUrl = `tel:${formattedNumber}`
+      
+      // Check if the device can open the tel: URI
+      const canOpen = await Linking.canOpenURL(dialerUrl)
+      
+      if (canOpen) {
+        await Linking.openURL(dialerUrl)
+      } else {
+        Alert.alert('Error', 'Unable to open dialer on this device')
+      }
+    } catch (error) {
+      console.error('Error opening dialer:', error)
+      Alert.alert('Error', 'Failed to open dialer')
+    }
   }
 
   return (
@@ -69,59 +178,92 @@ const TrustedContacts = () => {
         <View style={{ width: 28 }} />
       </View>
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* ============ ADD BUTTON ============ */}
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setModalVisible(true)}
-        >
-          <MaterialCommunityIcons name="plus" size={24} color={COLORS.text} />
-          <Text style={styles.addButtonText}>Add New Contact</Text>
-        </TouchableOpacity>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        {/* ============ LOADING STATE ============ */}
+        {loading && contacts.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.purple} />
+            <Text style={styles.loadingText}>Loading contacts...</Text>
+          </View>
+        ) : (
+          <>
+            {/* ============ ADD BUTTON ============ */}
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setModalVisible(true)}
+            >
+              <MaterialCommunityIcons name="plus" size={24} color={COLORS.text} />
+              <Text style={styles.addButtonText}>Add New Contact</Text>
+            </TouchableOpacity>
 
-        {/* ============ CONTACTS LIST ============ */}
-        <View style={styles.contactsList}>
-          {contacts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="heart-outline" size={48} color={COLORS.purple} />
-              <Text style={styles.emptyText}>No trusted contacts yet</Text>
-              <Text style={styles.emptySubtext}>Add your first trusted contact</Text>
+            {/* ============ CONTACTS LIST ============ */}
+            <View style={styles.contactsList}>
+              {contacts.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons
+                    name="heart-outline"
+                    size={48}
+                    color={COLORS.purple}
+                  />
+                  <Text style={styles.emptyText}>No trusted contacts yet</Text>
+                  <Text style={styles.emptySubtext}>Add your first trusted contact</Text>
+                </View>
+              ) : (
+                contacts.map((contact) => (
+                  <View key={contact._id} style={styles.contactCard}>
+                    <View style={styles.contactInfo}>
+                      <View style={styles.contactAvatar}>
+                        <MaterialCommunityIcons
+                          name="account-circle"
+                          size={40}
+                          color={COLORS.purple}
+                        />
+                      </View>
+                      <View style={styles.contactDetails}>
+                        <Text style={styles.contactName}>{contact.name}</Text>
+                        <Text style={styles.contactPhone}>{contact.phone}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.contactActions}>
+                      {/* ✅ CALL BUTTON - Opens Dialer */}
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleCallContact(contact.phone, contact.name)}
+                      >
+                        <MaterialCommunityIcons
+                          name="phone"
+                          size={20}
+                          color={COLORS.green}
+                        />
+                      </TouchableOpacity>
+                      
+                      {/* ✅ REMOVED: Message button */}
+                      
+                      {/* ✅ DELETE BUTTON */}
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleDeleteContact(contact._id, contact.name)}
+                      >
+                        <MaterialCommunityIcons
+                          name="delete"
+                          size={20}
+                          color={COLORS.red}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
-          ) : (
-            contacts.map((contact) => (
-              <View key={contact.id} style={styles.contactCard}>
-                <View style={styles.contactInfo}>
-                  <View style={styles.contactAvatar}>
-                    <MaterialCommunityIcons
-                      name="account-circle"
-                      size={40}
-                      color={COLORS.purple}
-                    />
-                  </View>
-                  <View style={styles.contactDetails}>
-                    <Text style={styles.contactName}>{contact.name}</Text>
-                    <Text style={styles.contactPhone}>{contact.phone}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.contactActions}>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <MaterialCommunityIcons name="phone" size={20} color={COLORS.green} />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <MaterialCommunityIcons name="message" size={20} color={COLORS.purple} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleDeleteContact(contact.id)}
-                  >
-                    <MaterialCommunityIcons name="delete" size={20} color={COLORS.red} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
+          </>
+        )}
       </ScrollView>
 
       {/* ============ ADD CONTACT MODAL ============ */}
@@ -141,6 +283,7 @@ const TrustedContacts = () => {
               placeholderTextColor={COLORS.textSecondary}
               value={newContact.name}
               onChangeText={(text) => setNewContact({ ...newContact, name: text })}
+              editable={!addingContact}
             />
 
             <TextInput
@@ -150,6 +293,7 @@ const TrustedContacts = () => {
               keyboardType="phone-pad"
               value={newContact.phone}
               onChangeText={(text) => setNewContact({ ...newContact, phone: text })}
+              editable={!addingContact}
             />
 
             <View style={styles.modalButtons}>
@@ -159,15 +303,24 @@ const TrustedContacts = () => {
                   setModalVisible(false)
                   setNewContact({ name: '', phone: '' })
                 }}
+                disabled={addingContact}
               >
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: COLORS.purple }]}
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: COLORS.purple, opacity: addingContact ? 0.6 : 1 },
+                ]}
                 onPress={handleAddContact}
+                disabled={addingContact}
               >
-                <Text style={styles.modalButtonText}>Add</Text>
+                {addingContact ? (
+                  <ActivityIndicator color={COLORS.text} size="small" />
+                ) : (
+                  <Text style={styles.modalButtonText}>Add</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -205,6 +358,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 12,
   },
 
   addButton: {
