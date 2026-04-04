@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const SHAKE_THRESHOLD = 1.5;
-const REQUIRED_SHAKES = 4;
+const REQUIRED_SHAKES = 5;
 const TIME_WINDOW = 4000; // 4 sec
 
 export default function useShakeAudio() {

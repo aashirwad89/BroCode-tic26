@@ -1,25 +1,36 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { Stack } from "expo-router";
+import { View, StyleSheet } from "react-native";
+import { Gesture, GestureDetector, GestureHandlerRootView  } from "react-native-gesture-handler";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import useShakeAudio from '@/hooks/useShakeAudio';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import useShakeAudio from "@/hooks/useShakeAudio";
+import useTapSOS from "@/hooks/useTapSOS";
+import { startSharing } from "../hooks/useLocationShare";
+import React from "react";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+
   useShakeAudio();
 
+  const startLocationSharing = () => {
+    console.log("📍 SOS Triggered");
+    startSharing("session_123");
+  };
+
+  const { handleTap } = useTapSOS(startLocationSharing);
+
+  const tapGesture = Gesture.Tap()
+    .onEnd(() => {
+      handleTap();
+    });
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+   <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureDetector gesture={tapGesture}>
+        <View style={{ flex: 1 }}>
+          <Stack />
+        </View>
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 }

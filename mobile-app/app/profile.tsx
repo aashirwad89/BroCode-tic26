@@ -13,7 +13,7 @@ import {
 } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as SecureStore from 'expo-secure-store'
 
 const COLORS = {
   dark: '#0B1220',
@@ -55,7 +55,7 @@ const Profile = () => {
   })
   const [modalVisible, setModalVisible] = useState(false)
 
-  // ✅ FIX: Use useFocusEffect to reload data when screen is focused
+  // ✅ USE FOCUSEFFECT TO RELOAD DATA WHEN SCREEN IS FOCUSED
   useFocusEffect(
     React.useCallback(() => {
       console.log('📱 Profile screen focused, loading data...')
@@ -67,15 +67,15 @@ const Profile = () => {
   const loadUserData = async () => {
     try {
       setLoading(true)
-      console.log('🔄 Loading user data from AsyncStorage...')
+      console.log('🔄 Loading user data from SecureStore...')
 
-      // ✅ GET PHONE NUMBER
-      const storedPhone = await AsyncStorage.getItem('userPhone')
-      console.log('📱 Retrieved phone from AsyncStorage:', storedPhone)
+      // ✅ GET PHONE NUMBER FROM SECURESTORE
+      const storedPhone = await SecureStore.getItemAsync('userPhone')
+      console.log('📱 Retrieved phone from SecureStore:', storedPhone)
 
-      // ✅ GET USER DATA (avatar)
-      const storedUserData = await AsyncStorage.getItem('userData')
-      console.log('📦 Retrieved userData from AsyncStorage:', storedUserData)
+      // ✅ GET USER DATA (AVATAR) FROM SECURESTORE
+      const storedUserData = await SecureStore.getItemAsync('userData')
+      console.log('📦 Retrieved userData from SecureStore:', storedUserData)
 
       let phone = storedPhone || ''
       let avatar = 'account-circle'
@@ -118,16 +118,16 @@ const Profile = () => {
         avatar: iconName, // New avatar
       }
 
-      console.log('💾 About to save to AsyncStorage:', newUserData)
+      console.log('💾 About to save to SecureStore:', newUserData)
 
-      // ✅ SAVE TO ASYNCSTORAGE
+      // ✅ SAVE TO SECURESTORE
       const jsonString = JSON.stringify(newUserData)
-      await AsyncStorage.setItem('userData', jsonString)
-      console.log('✅ Successfully saved to AsyncStorage')
+      await SecureStore.setItemAsync('userData', jsonString)
+      console.log('✅ Successfully saved to SecureStore')
 
       // ✅ VERIFY IT WAS SAVED
-      const verify = await AsyncStorage.getItem('userData')
-      console.log('✅ Verification - Retrieved from AsyncStorage:', verify)
+      const verify = await SecureStore.getItemAsync('userData')
+      console.log('✅ Verification - Retrieved from SecureStore:', verify)
 
       // ✅ UPDATE STATE
       setUserData(newUserData)
@@ -152,17 +152,17 @@ const Profile = () => {
         text: 'Logout',
         onPress: async () => {
           try {
-            console.log('🔄 Clearing AsyncStorage...')
+            console.log('🔄 Clearing SecureStore...')
 
-            // ✅ CLEAR ALL DATA
+            // ✅ CLEAR ALL DATA FROM SECURESTORE
             await Promise.all([
-              AsyncStorage.removeItem('userData'),
-              AsyncStorage.removeItem('userPhone'),
-              AsyncStorage.removeItem('authToken'),
-              AsyncStorage.removeItem('isVerified'),
+              SecureStore.deleteItemAsync('userData'),
+              SecureStore.deleteItemAsync('userPhone'),
+              SecureStore.deleteItemAsync('authToken'),
+              SecureStore.deleteItemAsync('isVerified'),
             ])
 
-            console.log('✅ Data cleared')
+            console.log('✅ Data cleared from SecureStore')
 
             // Navigate to login
             router.replace('/login')
@@ -245,9 +245,12 @@ const Profile = () => {
 
             {/* ============ DEBUG INFO ============ */}
             <View style={styles.debugCard}>
-              <Text style={styles.debugTitle}>Debug Info</Text>
+              <Text style={styles.debugTitle}>🔐 SecureStore Info</Text>
               <Text style={styles.debugText}>Phone: {userData.phone || 'N/A'}</Text>
               <Text style={styles.debugText}>Avatar: {userData.avatar}</Text>
+              <Text style={styles.debugSubText}>
+                Data is encrypted and stored securely
+              </Text>
             </View>
 
             {/* ============ LOGOUT BUTTON ============ */}
@@ -485,6 +488,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.text,
     marginBottom: 4,
+  },
+
+  debugSubText: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
   },
 
   logoutButton: {
