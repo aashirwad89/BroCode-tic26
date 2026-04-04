@@ -3,6 +3,11 @@ import mongoose from 'mongoose';
 
 const trustedContactSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'Please provide a user ID'],
+    },
     name: {
       type: String,
       required: [true, 'Please provide a contact name'],
@@ -15,8 +20,8 @@ const trustedContactSchema = new mongoose.Schema(
       required: [true, 'Please provide a phone number'],
       trim: true,
       match: [
-        /^[0-9]{10}$/,
-        'Please provide a valid 10-digit phone number',
+        /^[0-9]{10,15}$/,  // ✅ 10-15 digits — country code ke saath bhi kaam karega
+        'Please provide a valid phone number (10-15 digits)',
       ],
     },
   },

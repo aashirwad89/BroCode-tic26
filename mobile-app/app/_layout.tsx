@@ -3,14 +3,13 @@ import { Stack } from "expo-router";
 import { View, StyleSheet } from "react-native";
 import { Gesture, GestureHandlerRootView  } from "react-native-gesture-handler";
 import { StatusBar } from 'expo-status-bar';
-import useShakeAudio from "@/hooks/useShakeAudio";
 import useTapSOS from "@/hooks/useTapSOS";
 import { startSharing } from "../hooks/useLocationShare";
+import useShakeDetector from "@/hooks/useShakeDetector";
 
 export default function RootLayout() {
 
-  useShakeAudio();
-
+  useShakeDetector();
   const startLocationSharing = () => {
     console.log("📍 SOS Triggered");
     startSharing("session_123");
