@@ -5,7 +5,7 @@ const BASE_URL = 'http://10.252.189.103:8000/api';
 
 const api = axios.create({ baseURL: BASE_URL, timeout: 10000 });
 
-// ── Types ────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────
 export interface Contact {
   _id: string;
   name: string;
@@ -17,8 +17,8 @@ export interface SOSTriggerResponse {
   contacts: { name: string; phone: string }[];
 }
 
-// ── Contact APIs ─────────────────────────────────────────────
-// ✅ /contacts → /trustedContacts (backend route se match)
+// ── Contact APIs ──────────────────────────────────────────────
+// ✅ Backend app.js mein: /api/trustedContacts — sab yahi use karo
 export const fetchContacts = () =>
   api.get<{ success: boolean; data: Contact[] }>('/trustedContacts');
 
@@ -42,7 +42,7 @@ export const deleteContact = (id: string) =>
     `/trustedContacts/${id}`
   );
 
-// ── SOS APIs ─────────────────────────────────────────────────
+// ── SOS APIs ──────────────────────────────────────────────────
 export const triggerSOS = (latitude: number, longitude: number, audioPath?: string) =>
   api.post<{ success: boolean; data: SOSTriggerResponse }>('/sos/trigger', {
     latitude,

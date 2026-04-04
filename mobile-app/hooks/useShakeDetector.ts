@@ -6,20 +6,60 @@ import { Audio }                           from 'expo-av';
 import { Linking, Alert }                  from 'react-native';
 import { triggerSOS }                      from '../services/api';
 
-const SHAKE_THRESHOLD = 1.5;
-const SHAKE_COOLDOWN  = 4000;
+// ─── Constants ────────────────────────────────────────────────────
+const DELTA_THRESHOLD       = 1.8;
+const REQUIRED_SHAKES       = 5;
+const SHAKE_WINDOW_MS       = 1500;
+const SHAKE_COOLDOWN        = 5000;
+const UPDATE_INTERVAL       = 80;
+const RECORDING_DURATION_MS = 30_000; // ✅ 30 seconds auto-stop
 
 export default function useShakeDetector() {
-  const lastShakeTime  = useRef<number>(0);
-  const isRecording    = useRef<boolean>(false);
-  const audioPath      = useRef<string>('');
-  const recordingRef   = useRef<Audio.Recording | null>(null);
+  const lastShakeTime    = useRef<number>(0);
+  const isRecording      = useRef<boolean>(false);
+  const audioPath        = useRef<string>('');
+  const recordingRef     = useRef<Audio.Recording | null>(null);
+  const recordingTimer   = useRef<ReturnType<typeof setTimeout> | null>(null); // ✅ timer ref
 
-  // ── Audio Recording ────────────────────────────────────────
+  // Accelerometer delta tracking
+  const prevX            = useRef<number>(0);
+  const prevY            = useRef<number>(0);
+  const prevZ            = useRef<number>(0);
+  const prevReady        = useRef<boolean>(false);
+
+  // Shake counter
+  const shakeCount       = useRef<number>(0);
+  const shakeWindowStart = useRef<number>(0);
+
+  // ── Stop Recording ─────────────────────────────────────────────
+  const stopRecording = useCallback(async (): Promise<string> => {
+    // Timer clear karo agar manually stop ho raha hai
+    if (recordingTimer.current) {
+      clearTimeout(recordingTimer.current);
+      recordingTimer.current = null;
+    }
+
+    if (!isRecording.current || !recordingRef.current) return '';
+
+    try {
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI() ?? '';
+      recordingRef.current = null;
+      isRecording.current  = false;
+      audioPath.current    = uri;
+      console.log('[AUDIO] ⏹️ Stopped, saved at:', uri);
+      return uri;
+    } catch (err) {
+      console.error('[AUDIO] Stop error:', err);
+      return '';
+    }
+  }, []);
+
+  // ── Start Recording (with 30s auto-stop) ──────────────────────
   const startRecording = useCallback(async (): Promise<string> => {
     if (isRecording.current) return audioPath.current;
+
     try {
-      // Permission lo
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) {
         Alert.alert('Permission Error', 'Microphone permission chahiye!');
@@ -37,34 +77,23 @@ export default function useShakeDetector() {
 
       recordingRef.current = recording;
       isRecording.current  = true;
+      console.log('[AUDIO] ▶️ Recording started — will stop in 30s');
 
-      console.log('[AUDIO] Recording started');
+      // ✅ 30 seconds baad auto-stop
+      recordingTimer.current = setTimeout(async () => {
+        console.log('[AUDIO] ⏰ 30s complete — auto stopping...');
+        await stopRecording();
+      }, RECORDING_DURATION_MS);
+
       return 'recording_started';
     } catch (err) {
       isRecording.current = false;
       console.error('[AUDIO] Start error:', err);
       return '';
     }
-  }, []);
+  }, [stopRecording]);
 
-  const stopRecording = useCallback(async (): Promise<string> => {
-    if (!isRecording.current || !recordingRef.current) return '';
-    try {
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI() ?? '';
-      recordingRef.current = null;
-      isRecording.current  = false;
-      audioPath.current    = uri;
-
-      console.log('[AUDIO] Stopped, saved at:', uri);
-      return uri;
-    } catch (err) {
-      console.error('[AUDIO] Stop error:', err);
-      return '';
-    }
-  }, []);
-
-  // ── Location + WhatsApp ────────────────────────────────────
+  // ── Location + WhatsApp ────────────────────────────────────────
   const sendSOSWithLocation = useCallback(async (recordedAudioPath: string) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -78,7 +107,6 @@ export default function useShakeDetector() {
       });
       const { latitude, longitude } = loc.coords;
 
-      // Backend ko SOS log karo + contacts fetch karo
       const { data: res } = await triggerSOS(latitude, longitude, recordedAudioPath);
       const contacts = res.data.contacts;
 
@@ -90,7 +118,6 @@ export default function useShakeDetector() {
       const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
       const message  = `🚨 *SOS Alert!*\nMujhe madad chahiye!\n📍 Location:\n${mapsLink}`;
 
-      // Har contact ko WhatsApp pe bhejo
       for (const contact of contacts) {
         const url     = `whatsapp://send?phone=${contact.phone}&text=${encodeURIComponent(message)}`;
         const canOpen = await Linking.canOpenURL(url);
@@ -106,14 +133,15 @@ export default function useShakeDetector() {
     }
   }, []);
 
-  // ── Shake Handler ──────────────────────────────────────────
-  const handleShake = useCallback(async () => {
+  // ── SOS Trigger ────────────────────────────────────────────────
+  const triggerSOSNow = useCallback(async () => {
     const now = Date.now();
     if (now - lastShakeTime.current < SHAKE_COOLDOWN) return;
     lastShakeTime.current = now;
-    console.log('[SHAKE] Detected!');
+    shakeCount.current = 0;
 
-    // PARALLEL: dono ek saath
+    console.log('[SHAKE] ✅ SOS triggering!');
+
     const [recordedPath] = await Promise.all([
       startRecording(),
       sendSOSWithLocation(''),
@@ -122,19 +150,62 @@ export default function useShakeDetector() {
     audioPath.current = recordedPath;
   }, [startRecording, sendSOSWithLocation]);
 
-  // ── Accelerometer Listener ─────────────────────────────────
+  // ── Delta-Based Shake Detection ────────────────────────────────
+  const onAccelerometerUpdate = useCallback(
+    ({ x, y, z }: { x: number; y: number; z: number }) => {
+      if (!prevReady.current) {
+        prevX.current = x;
+        prevY.current = y;
+        prevZ.current = z;
+        prevReady.current = true;
+        return;
+      }
+
+      const deltaX = Math.abs(x - prevX.current);
+      const deltaY = Math.abs(y - prevY.current);
+      const deltaZ = Math.abs(z - prevZ.current);
+
+      prevX.current = x;
+      prevY.current = y;
+      prevZ.current = z;
+
+      const isSpiked =
+        deltaX > DELTA_THRESHOLD ||
+        deltaY > DELTA_THRESHOLD ||
+        deltaZ > DELTA_THRESHOLD;
+
+      if (!isSpiked) return;
+
+      const now = Date.now();
+      if (now - lastShakeTime.current < SHAKE_COOLDOWN) return;
+
+      if (now - shakeWindowStart.current > SHAKE_WINDOW_MS) {
+        shakeCount.current       = 0;
+        shakeWindowStart.current = now;
+      }
+
+      shakeCount.current += 1;
+      console.log(`[SHAKE] Spike #${shakeCount.current} / ${REQUIRED_SHAKES}`);
+
+      if (shakeCount.current >= REQUIRED_SHAKES) {
+        triggerSOSNow();
+      }
+    },
+    [triggerSOSNow]
+  );
+
+  // ── Accelerometer Listener ─────────────────────────────────────
   useEffect(() => {
-    Accelerometer.setUpdateInterval(100);
-    const sub = Accelerometer.addListener(({ x, y, z }) => {
-      const force = Math.sqrt(x * x + y * y + z * z);
-      if (force > SHAKE_THRESHOLD) handleShake();
-    });
+    Accelerometer.setUpdateInterval(UPDATE_INTERVAL);
+    const sub = Accelerometer.addListener(onAccelerometerUpdate);
 
     return () => {
       sub.remove();
+      // ✅ Unmount pe timer aur recording dono clear
+      if (recordingTimer.current) clearTimeout(recordingTimer.current);
       stopRecording();
     };
-  }, [handleShake, stopRecording]);
+  }, [onAccelerometerUpdate, stopRecording]);
 
   return { stopRecording, isRecording };
 }
