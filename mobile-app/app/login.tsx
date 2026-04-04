@@ -209,7 +209,7 @@ const Login = () => {
               </LinearGradient>
             </Animated.View>
 
-            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.title}>Welcome ✨</Text>
             <Text style={styles.subtitle}>
               {step === 'phone'
                 ? 'Enter your mobile number to sign in'

@@ -6,8 +6,8 @@ import { Audio }                           from 'expo-av';
 import { Linking, Alert }                  from 'react-native';
 import { triggerSOS }                      from '../services/api';
 
-const SHAKE_THRESHOLD = 1.8;
-const SHAKE_COOLDOWN  = 3000;
+const SHAKE_THRESHOLD = 1.5;
+const SHAKE_COOLDOWN  = 4000;
 
 export default function useShakeDetector() {
   const lastShakeTime  = useRef<number>(0);
