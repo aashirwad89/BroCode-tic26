@@ -7,7 +7,7 @@ import {
 } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
-import { fetchContacts, addContact, deleteContact } from '../services/api'  // ✅ api.ts use karo, hardcoded URLs nahi
+import { fetchContacts, addContact, deleteContact } from '../services/api'
 
 const C = {
   bg: '#F8FAFC', surface: '#FFFFFF', surfaceMuted: '#F8FAFC',
@@ -26,7 +26,6 @@ const TrustedContacts = () => {
   const [newContact, setNewContact] = useState({ name: '', phone: '' })
   const [addingContact, setAddingContact] = useState(false)
 
-  // ✅ api.ts ka fetchContacts use karo — URL ek jagah se control hoga
   const loadContacts = useCallback(async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true)
@@ -56,7 +55,6 @@ const TrustedContacts = () => {
     }
     try {
       setAddingContact(true)
-      // ✅ api.ts ka addContact — '/trustedContacts' pe jaayega
       const res = await addContact(newContact.name.trim(), cleanPhone)
       if (res.data.success) {
         setContacts(prev => [res.data.data, ...prev])
@@ -79,7 +77,6 @@ const TrustedContacts = () => {
         text: 'Delete', style: 'destructive',
         onPress: async () => {
           try {
-            // ✅ api.ts ka deleteContact
             const res = await deleteContact(id)
             if (res.data.success) {
               setContacts(prev => prev.filter(c => c._id !== id))
@@ -103,6 +100,22 @@ const TrustedContacts = () => {
     } catch {
       Alert.alert('Error', 'Failed to open dialer')
     }
+  }
+
+  // ✅ ... button press karne par yeh popup aayega
+  const handleMoreOptions = (contact: { _id: string; name: string; phone: string }) => {
+    Alert.alert(contact.name, `+91${contact.phone}`, [
+      {
+        text: '📞 Call',
+        onPress: () => handleCallContact(contact.phone),
+      },
+      {
+        text: '🗑️ Delete',
+        style: 'destructive',
+        onPress: () => handleDeleteContact(contact._id, contact.name),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ])
   }
 
   return (
@@ -157,17 +170,28 @@ const TrustedContacts = () => {
                       </View>
                     </View>
                     <View style={styles.actions}>
+                      {/* ✅ Phone button — seedha dialer */}
                       <TouchableOpacity
                         style={styles.actionBtn}
                         onPress={() => handleCallContact(contact.phone)}
                       >
                         <MaterialCommunityIcons name="phone" size={18} color={C.green} />
                       </TouchableOpacity>
+
+                      {/* ✅ Delete button */}
                       <TouchableOpacity
                         style={styles.actionBtn}
                         onPress={() => handleDeleteContact(contact._id, contact.name)}
                       >
                         <MaterialCommunityIcons name="delete" size={18} color={C.red} />
+                      </TouchableOpacity>
+
+                      {/* ✅ ... button — popup with Call / Delete / Cancel */}
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => handleMoreOptions(contact)}
+                      >
+                        <MaterialCommunityIcons name="dots-horizontal" size={18} color={C.textMuted} />
                       </TouchableOpacity>
                     </View>
                   </View>
