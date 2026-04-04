@@ -6,7 +6,7 @@ const trustedContactSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Please provide a user ID'],
+      required: [false, 'optional user ID'],
     },
     name: {
       type: String,

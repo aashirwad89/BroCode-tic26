@@ -1,7 +1,7 @@
 // src/services/api.ts
 import axios from 'axios';
 
-const BASE_URL = 'http://10.252.189.103:8000/api';
+const BASE_URL = 'https://brocode-tic26.onrender.com/api';
 
 const api = axios.create({ baseURL: BASE_URL, timeout: 10000 });
 

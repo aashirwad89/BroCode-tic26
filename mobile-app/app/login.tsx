@@ -21,7 +21,7 @@ import { Smartphone, Phone } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const BASE_URL = 'http://10.252.189.103:8000/api';
+const BASE_URL = 'https://brocode-tic26.onrender.com/api';
 
 // ✅ Match Home ki light design + purple‑bubbles accent
 const C = {

@@ -45,7 +45,7 @@ const location = () => {
   const [address, setAddress] = useState('')
   const [sessionId] = useState('emergency-session-' + Date.now())
 
-  const LIVE_TRACK_URL = `http://10.252.189.103:3000/track/${sessionId}`
+  const LIVE_TRACK_URL = `https://brocode-tic26.onrender.com/track/${sessionId}`
 
   // ============ GET CURRENT LOCATION ============
   const getCurrentLocation = async (): Promise<{

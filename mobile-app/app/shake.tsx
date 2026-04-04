@@ -1,625 +1,495 @@
 /* eslint-disable @typescript-eslint/array-type */
 /* eslint-disable react/no-unescaped-entities */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   StyleSheet,
   Text,
   View,
   SafeAreaView,
   Animated,
-  Image,
   ScrollView,
+  TouchableOpacity,
+  StatusBar,
+  Pressable,
 } from 'react-native'
-import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { Accelerometer } from 'expo-sensors'
+import { LinearGradient } from 'expo-linear-gradient'
+import * as Haptics from 'expo-haptics'
 
-const COLORS = {
-  dark: '#0B1220',
-  card: '#121A2B',
-  purple: '#7C3AED',
-  text: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  border: '#1E293B',
-  red: '#EF4444',
-  green: '#10B981',
-  blue: '#3B82F6',
-  yellow: '#F59E0B',
+const C = {
+  bg:          '#F8FAFC',
+  surface:     '#FFFFFF',
+  pink:        '#DB2777',
+  pinkLight:   '#F472B6',
+  pinkDeep:    '#9D174D',
+  pinkGlow:    '#EC4899',
+  text:        '#111827',
+  textSub:     '#64748B',
+  border:      '#F1F5F9',
+  borderMid:   '#E2E8F0',
+  green:       '#10B981',
+  greenLight:  '#D1FAE5',
+  red:         '#EF4444',
+  redLight:    '#FEE2E2',
+  yellow:      '#F59E0B',
+  yellowLight: '#FEF3C7',
+  blue:        '#3B82F6',
+  blueLight:   '#DBEAFE',
 }
 
-const ShakeDetection = () => {
+const SHAKE_THRESHOLD = 25
+const SHAKE_COOLDOWN  = 500
+
+export default function ShakeDetection() {
   const router = useRouter()
-  const [isActive, setIsActive] = useState(false)
-  const [shakeCount, setShakeCount] = useState(0)
+  const [isActive, setIsActive]   = useState(false)
   const [lastShake, setLastShake] = useState(0)
-  const scaleAnim = React.useRef(new Animated.Value(1)).current
-  const pulseAnim = React.useRef(new Animated.Value(1)).current
 
-  const SHAKE_THRESHOLD = 25
-  const SHAKE_COOLDOWN = 500
+  const scaleAnim  = useRef(new Animated.Value(1)).current
+  const pulseAnim  = useRef(new Animated.Value(1)).current
+  const glowAnim   = useRef(new Animated.Value(0)).current
+  const btnScale   = useRef(new Animated.Value(1)).current
+  const ringAnim   = useRef(new Animated.Value(0.8)).current
+  const ring2Anim  = useRef(new Animated.Value(0.6)).current
 
+  // Pulse loop when active
+  useEffect(() => {
+    if (isActive) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.15, duration: 900, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1,    duration: 900, useNativeDriver: true }),
+        ])
+      )
+      const ring = Animated.loop(
+        Animated.sequence([
+          Animated.timing(ringAnim,  { toValue: 1.4, duration: 1200, useNativeDriver: true }),
+          Animated.timing(ringAnim,  { toValue: 0.8, duration: 1200, useNativeDriver: true }),
+        ])
+      )
+      const ring2 = Animated.loop(
+        Animated.sequence([
+          Animated.timing(ring2Anim, { toValue: 1.6, duration: 1600, useNativeDriver: true }),
+          Animated.timing(ring2Anim, { toValue: 0.6, duration: 1600, useNativeDriver: true }),
+        ])
+      )
+      const glow = Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+          Animated.timing(glowAnim, { toValue: 0, duration: 1000, useNativeDriver: true }),
+        ])
+      )
+      pulse.start(); ring.start(); ring2.start(); glow.start()
+      return () => { pulse.stop(); ring.stop(); ring2.stop(); glow.stop() }
+    } else {
+      pulseAnim.setValue(1)
+      glowAnim.setValue(0)
+      ringAnim.setValue(0.8)
+      ring2Anim.setValue(0.6)
+    }
+  }, [isActive])
+
+  // Accelerometer
   useEffect(() => {
     if (!isActive) return
-
     Accelerometer.setUpdateInterval(100)
-
-    const subscription = Accelerometer.addListener(({ x, y, z }) => {
-      const acceleration = Math.sqrt(x * x + y * y + z * z)
-
-      if (acceleration > SHAKE_THRESHOLD) {
+    const sub = Accelerometer.addListener(({ x, y, z }) => {
+      const acc = Math.sqrt(x * x + y * y + z * z)
+      if (acc > SHAKE_THRESHOLD) {
         const now = Date.now()
-
         if (now - lastShake > SHAKE_COOLDOWN) {
-          setShakeCount((prev) => {
-            const newCount = prev + 1
-            
-            // ✅ REMOVED: Test alert
-            // Trigger animation only
-            Animated.sequence([
-              Animated.timing(scaleAnim, {
-                toValue: 1.2,
-                duration: 100,
-                useNativeDriver: true,
-              }),
-              Animated.timing(scaleAnim, {
-                toValue: 1,
-                duration: 100,
-                useNativeDriver: true,
-              }),
-            ]).start()
-
-            return newCount
-          })
           setLastShake(now)
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+          Animated.sequence([
+            Animated.timing(scaleAnim, { toValue: 1.25, duration: 80, useNativeDriver: true }),
+            Animated.spring(scaleAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
+          ]).start()
         }
       }
     })
-
-    // Pulse animation loop
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start()
-
-    return () => subscription.remove()
+    return () => sub.remove()
   }, [isActive, lastShake])
 
+  const toggleActive = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    Animated.sequence([
+      Animated.timing(btnScale, { toValue: 0.93, duration: 80, useNativeDriver: true }),
+      Animated.spring(btnScale, { toValue: 1, friction: 5, useNativeDriver: true }),
+    ]).start()
+    setIsActive(prev => !prev)
+  }
+
+  const steps = [
+    { icon: 'smartphone' as const,  label: 'Hold phone firmly in hand' },
+    { icon: 'zap' as const,         label: 'Shake vigorously & repeatedly' },
+    { icon: 'mic' as const,         label: 'Recording starts automatically' },
+    { icon: 'users' as const,       label: 'Contacts notified instantly' },
+    { icon: 'map-pin' as const,     label: 'Location sent in real-time' },
+  ]
+
   const features: Array<{
-    icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']
-    title: string
+    icon: React.ComponentProps<typeof Feather>['name']
+    label: string
     desc: string
+    color: string
+    bg: string
   }> = [
-    {
-      icon: 'vibrate',
-      title: 'Vibration Detection',
-      desc: 'Shake your phone vigorously to trigger',
-    },
-    {
-      icon: 'microphone',
-      title: 'Audio Recording',
-      desc: 'Automatically records audio when triggered',
-    },
-    {
-      icon: 'bell-alert',
-      title: 'Alert Contacts',
-      desc: 'Instantly notifies your trusted contacts',
-    },
-    {
-      icon: 'map-marker',
-      title: 'Location Sharing',
-      desc: 'Real-time location sent to emergency contacts',
-    },
+    { icon: 'mic',      label: 'Auto Recording',     desc: 'Records audio when triggered',         color: C.pink,   bg: '#FDF2F8' },
+    { icon: 'bell',     label: 'Alert Contacts',     desc: 'Notifies your trusted contacts',       color: C.blue,   bg: C.blueLight },
+    { icon: 'map-pin',  label: 'Live Location',      desc: 'Real-time GPS to emergency contacts',  color: C.green,  bg: C.greenLight },
+    { icon: 'shield',   label: 'Always On Guard',    desc: 'Works even in background',             color: C.yellow, bg: C.yellowLight },
   ]
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* ============ HEADER ============ */}
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+
+      {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialCommunityIcons name="chevron-left" size={28} color={COLORS.text} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Feather name="chevron-left" size={26} color={C.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Shake Detection</Text>
-        <View style={{ width: 28 }} />
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* ============ STATUS CARD ============ */}
-        <View style={styles.statusCard}>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: isActive ? `${COLORS.green}20` : `${COLORS.red}20` },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name={isActive ? 'shield-check' : 'shield-alert'}
-              size={20}
-              color={isActive ? COLORS.green : COLORS.red}
-            />
-            <Text
-              style={[
-                styles.statusText,
-                { color: isActive ? COLORS.green : COLORS.red },
-              ]}
-            >
-              {isActive ? 'LISTENING' : 'READY'}
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* ── HERO VISUAL ── */}
+        <View style={styles.heroSection}>
+
+          {/* Status pill */}
+          <View style={[
+            styles.statusPill,
+            { backgroundColor: isActive ? C.greenLight : C.redLight,
+              borderColor:      isActive ? `${C.green}40` : `${C.red}20` }
+          ]}>
+            <View style={[styles.statusDot, { backgroundColor: isActive ? C.green : C.red }]} />
+            <Text style={[styles.statusLabel, { color: isActive ? C.green : C.red }]}>
+              {isActive ? 'LISTENING' : 'INACTIVE'}
             </Text>
           </View>
-        </View>
 
-        {/* ============ MAIN VISUAL ============ */}
-        <View style={styles.visualSection}>
-          <Text style={styles.readyText}>Ready to Use</Text>
+          {/* Animated rings + icon */}
+          <View style={styles.ringWrapper}>
+            {isActive && (
+              <>
+                <Animated.View style={[styles.ring, styles.ring2, { transform: [{ scale: ring2Anim }], opacity: ring2Anim.interpolate({ inputRange: [0.6, 1.6], outputRange: [0.3, 0] }) }]} />
+                <Animated.View style={[styles.ring, styles.ring1, { transform: [{ scale: ringAnim }],  opacity: ringAnim.interpolate({ inputRange: [0.8, 1.4], outputRange: [0.5, 0] }) }]} />
+              </>
+            )}
+            <Animated.View style={{ transform: [{ scale: isActive ? pulseAnim : scaleAnim }] }}>
+              <LinearGradient
+                colors={[C.pinkLight, C.pink, C.pinkDeep]}
+                style={styles.iconCircle}
+              >
+                <Feather name="smartphone" size={46} color="#fff" strokeWidth={1.5} />
+              </LinearGradient>
+            </Animated.View>
+          </View>
 
-          {/* Animated Phone Image */}
-          <Animated.View
-            style={[
-              styles.phoneContainer,
-              { transform: [{ scale: isActive ? scaleAnim : 1 }] },
-            ]}
-          >
-            <Image
-              source={{
-                uri: 'https://cdn-icons-png.flaticon.com/512/747/747376.png',
-              }}
-              style={styles.phoneImage}
-            />
+          <Text style={styles.heroTitle}>
+            {isActive ? 'Shake your phone!' : 'Ready to protect you'}
+          </Text>
+          <Text style={styles.heroSub}>
+            {isActive
+              ? 'Shake vigorously to trigger emergency mode'
+              : 'Activate shake detection to get started'}
+          </Text>
+
+          {/* ACTIVATE BUTTON */}
+          <Animated.View style={{ transform: [{ scale: btnScale }], width: '100%', marginTop: 24 }}>
+            {isActive ? (
+              <Pressable onPress={toggleActive} style={styles.deactivateBtn}>
+                <Feather name="square" size={16} color={C.red} />
+                <Text style={[styles.deactivateBtnText]}>Deactivate</Text>
+              </Pressable>
+            ) : (
+              <TouchableOpacity onPress={toggleActive} activeOpacity={0.88}>
+                <LinearGradient
+                  colors={[C.pinkLight, C.pink, C.pinkDeep]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={styles.activateBtn}
+                >
+                  <Feather name="shield" size={18} color="#fff" />
+                  <Text style={styles.activateBtnText}>Active Protection</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
           </Animated.View>
-
-          {/* Pulse Ring - Only Show When Active */}
-          {isActive && (
-            <Animated.View
-              style={[
-                styles.pulseRing,
-                { transform: [{ scale: pulseAnim }] },
-              ]}
-            />
-          )}
-
-          {/* Shake Counter */}
-          <View style={styles.counterContainer}>
-            <Text style={styles.counterLabel}>Shakes Detected</Text>
-            <Text style={styles.counterNumber}>{shakeCount}</Text>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${Math.min((shakeCount / 5) * 100, 100)}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.progressText}>
-              {isActive ? 'Listening for shakes...' : 'Tap on a feature to test'}
-            </Text>
-          </View>
         </View>
 
-        {/* ============ INSTRUCTIONS ============ */}
-        <View style={styles.instructionsCard}>
-          <View style={styles.instructionHeader}>
-            <MaterialCommunityIcons name="information" size={20} color={COLORS.blue} />
-            <Text style={styles.instructionsTitle}>How to Use</Text>
+        {/* ── HOW IT WORKS ── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.cardHeaderIcon, { backgroundColor: C.blueLight }]}>
+              <Feather name="info" size={15} color={C.blue} />
+            </View>
+            <Text style={styles.cardTitle}>How It Works</Text>
           </View>
-          
-          <View style={styles.pointerList}>
-            <View style={styles.pointer}>
-              <View style={styles.pointerNumber}>
-                <MaterialCommunityIcons name="numeric-1-circle" size={24} color={COLORS.text} />
-              </View>
-              <Text style={styles.pointerText}>Hold your phone firmly in your hand</Text>
-            </View>
 
-            <View style={styles.pointer}>
-              <View style={styles.pointerNumber}>
-                <MaterialCommunityIcons name="numeric-2-circle" size={24} color={COLORS.text} />
-              </View>
-              <Text style={styles.pointerText}>Enable shake detection from home screen</Text>
-            </View>
-
-            <View style={styles.pointer}>
-              <View style={styles.pointerNumber}>
-                <MaterialCommunityIcons name="numeric-3-circle" size={24} color={COLORS.text} />
-              </View>
-              <Text style={styles.pointerText}>Shake the phone vigorously and repeatedly</Text>
-            </View>
-
-            <View style={styles.pointer}>
-              <View style={styles.pointerNumber}>
-                <MaterialCommunityIcons name="numeric-4-circle" size={24} color={COLORS.text} />
-              </View>
-              <Text style={styles.pointerText}>Emergency recording starts automatically</Text>
-            </View>
-
-            <View style={styles.pointer}>
-              <View style={styles.pointerNumber}>
-                <MaterialCommunityIcons name="numeric-5-circle" size={24} color={COLORS.text} />
-              </View>
-              <Text style={styles.pointerText}>Trusted contacts are notified instantly</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ============ FEATURES ============ */}
-        <View style={styles.featuresCard}>
-          <View style={styles.featureHeader}>
-            <MaterialCommunityIcons name="star" size={20} color={COLORS.purple} />
-            <Text style={styles.featuresTitle}>Features</Text>
-          </View>
-          
-          <View style={styles.featuresList}>
-            {features.map((feature, index) => (
-              <View key={index} style={styles.featureItem}>
-                <View style={styles.featureIconContainer}>
-                  <MaterialCommunityIcons
-                    name={feature.icon}
-                    size={20}
-                    color={COLORS.purple}
-                  />
+          <View style={styles.stepsList}>
+            {steps.map((s, i) => (
+              <View key={i} style={styles.stepRow}>
+                <View style={styles.stepLeft}>
+                  <LinearGradient
+                    colors={[C.pinkLight, C.pink]}
+                    style={styles.stepNum}
+                  >
+                    <Text style={styles.stepNumText}>{i + 1}</Text>
+                  </LinearGradient>
+                  {i < steps.length - 1 && <View style={styles.stepLine} />}
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.featureTitle}>{feature.title}</Text>
-                  <Text style={styles.featureDesc}>{feature.desc}</Text>
+                <View style={styles.stepContent}>
+                  <View style={styles.stepIconBox}>
+                    <Feather name={s.icon} size={15} color={C.pink} />
+                  </View>
+                  <Text style={styles.stepLabel}>{s.label}</Text>
                 </View>
               </View>
             ))}
           </View>
         </View>
 
-        {/* ============ WARNING ============ */}
+        {/* ── FEATURES ── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.cardHeaderIcon, { backgroundColor: '#FDF2F8' }]}>
+              <Feather name="star" size={15} color={C.pink} />
+            </View>
+            <Text style={styles.cardTitle}>Features</Text>
+          </View>
+
+          <View style={styles.featuresGrid}>
+            {features.map((f, i) => (
+              <View key={i} style={[styles.featureBox, { backgroundColor: f.bg }]}>
+                <View style={[styles.featureIcon, { backgroundColor: `${f.color}20` }]}>
+                  <Feather name={f.icon} size={18} color={f.color} />
+                </View>
+                <Text style={styles.featureLabel}>{f.label}</Text>
+                <Text style={styles.featureDesc}>{f.desc}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* ── WARNING ── */}
         <View style={styles.warningCard}>
-          <MaterialCommunityIcons name="alert-circle" size={20} color={COLORS.yellow} />
+          <Feather name="alert-triangle" size={18} color={C.yellow} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.warningTitle}>Important Notice</Text>
+            <Text style={styles.warningTitle}>Use Responsibly</Text>
             <Text style={styles.warningText}>
-              This feature is designed for emergency situations. Use responsibly and only when
-              genuinely needed.
+              Designed for emergency situations only. Avoid accidental triggers in daily use.
             </Text>
           </View>
         </View>
 
-        {/* ============ TIPS ============ */}
+        {/* ── TIPS ── */}
         <View style={styles.tipsCard}>
-          <View style={styles.tipHeader}>
-            <MaterialCommunityIcons name="lightbulb-outline" size={20} color={COLORS.yellow} />
-            <Text style={styles.tipsTitle}>Pro Tips</Text>
+          <View style={styles.cardHeader}>
+            <View style={[styles.cardHeaderIcon, { backgroundColor: C.yellowLight }]}>
+              <Ionicons name="bulb-outline" size={15} color={C.yellow} />
+            </View>
+            <Text style={styles.cardTitle}>Pro Tips</Text>
           </View>
-          
-          <View style={styles.tipsList}>
-            <View style={styles.tipItem}>
-              <MaterialCommunityIcons name="check-circle" size={16} color={COLORS.green} />
-              <Text style={styles.tipText}>Keep your phone in an accessible location</Text>
+          {[
+            'Keep your phone in an accessible location',
+            'Test the feature regularly to ensure it works',
+            'Make sure your trusted contacts are up to date',
+          ].map((tip, i) => (
+            <View key={i} style={styles.tipRow}>
+              <Feather name="check-circle" size={15} color={C.green} />
+              <Text style={styles.tipText}>{tip}</Text>
             </View>
-            <View style={styles.tipItem}>
-              <MaterialCommunityIcons name="check-circle" size={16} color={COLORS.green} />
-              <Text style={styles.tipText}>Test the feature regularly to ensure it works</Text>
-            </View>
-            <View style={styles.tipItem}>
-              <MaterialCommunityIcons name="check-circle" size={16} color={COLORS.green} />
-              <Text style={styles.tipText}>Make sure your trusted contacts are up to date</Text>
-            </View>
-          </View>
+          ))}
         </View>
 
-        <View style={{ height: 20 }} />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   )
 }
 
-// ✅ Add TouchableOpacity import
-import { TouchableOpacity } from 'react-native'
-
-export default ShakeDetection
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.dark,
-  },
+  safe: { flex: 1, backgroundColor: C.bg },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.card,
+    paddingVertical: 14,
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: C.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+    marginTop:42,
   },
-
-  backButton: {
-    padding: 4,
+  backBtn: {
+    width: 36, height: 36,
+    borderRadius: 10,
+    backgroundColor: C.bg,
+    justifyContent: 'center', alignItems: 'center',
   },
+  headerTitle: { fontSize: 17, fontWeight: '800', color: C.text },
 
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
+  scroll: { paddingHorizontal: 16, paddingTop: 20 },
 
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-
-  statusCard: {
-    marginBottom: 20,
-  },
-
-  statusBadge: {
-    flexDirection: 'row',
+  /* ── Hero ── */
+  heroSection: {
+    backgroundColor: C.surface,
+    borderRadius: 24,
+    padding: 24,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-
-  statusText: {
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-
-  visualSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-
-  readyText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.text,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: C.pink,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
   },
 
-  phoneContainer: {
-    width: 140,
-    height: 140,
+  statusPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 99, borderWidth: 1,
+    marginBottom: 28,
+  },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
+
+  ringWrapper: {
+    width: 160, height: 160,
+    justifyContent: 'center', alignItems: 'center',
     marginBottom: 20,
   },
-
-  phoneImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-
-  pulseRing: {
+  ring: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 3,
-    borderColor: `${COLORS.purple}50`,
-    top: '50%',
-    left: '50%',
-    marginLeft: -100,
-    marginTop: -100,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: C.pink,
+  },
+  ring1: { width: 130, height: 130 },
+  ring2: { width: 160, height: 160 },
+  iconCircle: {
+    width: 100, height: 100,
+    borderRadius: 50,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: C.pink,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
   },
 
-  counterContainer: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
+  heroTitle: {
+    fontSize: 20, fontWeight: '800', color: C.text,
+    textAlign: 'center', marginBottom: 6,
+  },
+  heroSub: {
+    fontSize: 13, color: C.textSub, textAlign: 'center',
+    lineHeight: 19, paddingHorizontal: 8,
   },
 
-  counterLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    marginBottom: 8,
+  activateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, height: 52, borderRadius: 14,
+    shadowColor: C.pink, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.38, shadowRadius: 14, elevation: 8,
   },
+  activateBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  counterNumber: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: COLORS.purple,
-    marginBottom: 12,
+  deactivateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, height: 52, borderRadius: 14,
+    backgroundColor: C.redLight,
+    borderWidth: 1.5, borderColor: `${C.red}30`,
   },
+  deactivateBtnText: { fontSize: 16, fontWeight: '700', color: C.red },
 
-  progressBar: {
-    width: '100%',
-    height: 8,
-    backgroundColor: `${COLORS.purple}20`,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-
-  progressFill: {
-    height: '100%',
-    backgroundColor: COLORS.purple,
-    borderRadius: 4,
-  },
-
-  progressText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-  },
-
-  instructionsCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
+  /* ── Cards ── */
+  card: {
+    backgroundColor: C.surface,
+    borderRadius: 20, padding: 18,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1, borderColor: C.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
-
-  instructionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  cardHeaderIcon: {
+    width: 30, height: 30, borderRadius: 8,
+    justifyContent: 'center', alignItems: 'center',
   },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: C.text },
 
-  instructionsTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.text,
+  /* Steps */
+  stepsList: { gap: 0 },
+  stepRow: { flexDirection: 'row', gap: 14, minHeight: 52 },
+  stepLeft: { alignItems: 'center', width: 28 },
+  stepNum: {
+    width: 28, height: 28, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center',
   },
-
-  pointerList: {
-    gap: 12,
+  stepNumText: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  stepLine: {
+    flex: 1, width: 2,
+    backgroundColor: `${C.pink}20`,
+    marginVertical: 3,
   },
-
-  pointer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+  stepContent: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 10, flex: 1, paddingBottom: 18,
   },
-
-  pointerNumber: {
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 2,
+  stepIconBox: {
+    width: 32, height: 32, borderRadius: 9,
+    backgroundColor: '#FDF2F8',
+    justifyContent: 'center', alignItems: 'center',
   },
+  stepLabel: { fontSize: 13, fontWeight: '600', color: C.text, flex: 1 },
 
-  pointerText: {
-    flex: 1,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    lineHeight: 18,
+  /* Features grid */
+  featuresGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
   },
-
-  featuresCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  featureBox: {
+    width: '47%', borderRadius: 14,
+    padding: 14, gap: 8,
   },
-
-  featureHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
+  featureIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    justifyContent: 'center', alignItems: 'center',
   },
+  featureLabel: { fontSize: 13, fontWeight: '700', color: C.text },
+  featureDesc:  { fontSize: 11, color: C.textSub, fontWeight: '500', lineHeight: 15 },
 
-  featuresTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-
-  featuresList: {
-    gap: 12,
-  },
-
-  featureItem: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'flex-start',
-  },
-
-  featureIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: `${COLORS.purple}20`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  featureTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-
-  featureDesc: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-
+  /* Warning */
   warningCard: {
-    flexDirection: 'row',
-    backgroundColor: `${COLORS.yellow}15`,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: `${COLORS.yellow}30`,
-    gap: 12,
-    alignItems: 'flex-start',
+    flexDirection: 'row', gap: 12, alignItems: 'flex-start',
+    backgroundColor: C.yellowLight,
+    borderRadius: 16, padding: 14,
+    borderWidth: 1, borderColor: `${C.yellow}40`,
     marginBottom: 16,
   },
+  warningTitle: { fontSize: 13, fontWeight: '700', color: '#92400E', marginBottom: 3 },
+  warningText:  { fontSize: 12, color: '#78350F', fontWeight: '500', lineHeight: 17 },
 
-  warningTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.yellow,
-    marginBottom: 4,
-  },
-
-  warningText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    lineHeight: 16,
-  },
-
+  /* Tips */
   tipsCard: {
-    backgroundColor: `${COLORS.yellow}10`,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: `${COLORS.yellow}30`,
+    backgroundColor: C.surface,
+    borderRadius: 20, padding: 18,
+    marginBottom: 8,
+    borderWidth: 1, borderColor: C.border,
   },
-
-  tipHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-
-  tipsTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-
-  tipsList: {
-    gap: 10,
-  },
-
-  tipItem: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-  },
-
-  tipText: {
-    flex: 1,
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
+  tipRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  tipText: { fontSize: 12, color: C.textSub, fontWeight: '600', flex: 1 },
 })
