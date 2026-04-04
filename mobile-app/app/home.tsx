@@ -130,7 +130,8 @@ const Home = () => {
 
   // ── Features ──────────────────────────────────────────────────
   const features = [
-    { id: 1, title: 'Trusted Contacts', icon: 'heart'        as const, color: C.red,    ghost: C.redGhost,    count: '3',      screen: 'contacts'       },
+    { id: 1, title: 'Trusted Contacts', icon: 'heart' as const, color: C.red,    ghost: C.redGhost,       screen: 'contacts'       },
+    { id: 2, title: 'Safety Tips', icon: 'lightbulb-on'  as const, color: C.red,    ghost: C.redGhost,       screen: 'safety'  },
     { id: 3, title: 'GPS Location',     icon: 'map-marker'   as const, color: C.green,  ghost: C.greenGhost,  count: 'Active', screen: 'location'       },
     { id: 4, title: 'Shake Detection',  icon: 'alert-circle' as const, color: C.yellow, ghost: C.yellowGhost, count: 'Ready',  screen: 'shakeDetection' },
   ]
@@ -191,19 +192,10 @@ const Home = () => {
                   </LinearGradient>
                 </Animated.View>
                 <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={styles.greetTitle}>👋 Welcome back!</Text>
-                  <Text style={styles.greetSub}>Activate safety mode for instant alerts and emergency protection.</Text>
+                  <Text style={styles.greetTitle}> Hii 👋 ,  </Text>
+                  <Text style={styles.greetSub}>Instant alerts and emergency protection.</Text>
                 </View>
               </View>
-              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-                <TouchableOpacity
-                  style={[styles.activateBtn, { backgroundColor: isActive ? C.green : C.pink }]}
-                  onPress={handleActivate} activeOpacity={0.85}
-                >
-                  <MaterialCommunityIcons name={isActive ? 'shield-check' : 'shield-alert'} size={20} color="#fff" />
-                  <Text style={styles.activateBtnText}>{isActive ? 'Safety Active' : 'Tap to Activate'}</Text>
-                </TouchableOpacity>
-              </Animated.View>
             </View>
           </Animated.View>
 
@@ -216,6 +208,7 @@ const Home = () => {
                   key={f.id} style={styles.featureBox} activeOpacity={0.8}
                   onPress={() => {
                     if (f.screen === 'contacts')       router.push('/trusted')
+                      else if(f.screen == 'safety')     router.push('/safety')
                     else if (f.screen === 'location')  router.push('/location')
                     else if (f.screen === 'shakeDetection') router.push('/shake')
                   }}

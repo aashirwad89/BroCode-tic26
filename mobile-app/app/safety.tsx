@@ -19,25 +19,39 @@ import { LinearGradient } from 'expo-linear-gradient'
 
 const { width } = Dimensions.get('window')
 
-// ============ COLORS (Dark Theme) ============
+// ============ COLORS (Light Theme + Pink Gradient) ============
 const COLORS = {
-  dark: '#0D0A06',
-  darkCard: '#1A1410',
-  surface: '#2A2420',
-  purple: '#7C3AED',
-  purpleLight: '#A78BFA',
-  red: '#F43F5E',
-  redGhost: '#FFE4E6',
-  green: '#10B981',
-  greenGhost: '#D1FAE5',
-  amber: '#F59E0B',
-  amberGhost: '#FEF3C7',
-  blue: '#0EA5E9',
-  blueGhost: '#E0F2FE',
-  text: '#F5F5F0',
-  textSub: '#D4CEC3',
-  textMute: '#A8A29E',
-  border: '#3E3A35',
+  bg:          '#FFFFFF',
+  bgSoft:      '#FFF5F7',
+  surface:     '#FFFFFF',
+  card:        '#FFFFFF',
+
+  // Pink gradient palette
+  pinkDeep:    '#E11D6A',
+  pink:        '#F43F8E',
+  pinkMid:     '#FB7EB8',
+  pinkLight:   '#FFD6E8',
+  pinkGhost:   '#FFF0F6',
+
+  // Accents
+  coral:       '#FF6B6B',
+  amber:       '#F59E0B',
+  amberGhost:  '#FEF3C7',
+  blue:        '#3B82F6',
+  blueGhost:   '#EFF6FF',
+  green:       '#10B981',
+  greenGhost:  '#ECFDF5',
+  purple:      '#8B5CF6',
+  purpleGhost: '#F5F3FF',
+
+  // Text
+  text:        '#1A1A2E',
+  textSub:     '#4A4A6A',
+  textMute:    '#9CA3AF',
+
+  // Border & Shadow
+  border:      '#F0E6ED',
+  shadow:      '#E11D6A',
 } as const
 
 // ============ TYPES ============
@@ -94,8 +108,8 @@ const EMERGENCY_CONTACTS: EmergencyContact[] = [
     name: 'Ambulance',
     number: '102',
     icon: 'hospital-box',
-    color: COLORS.red,
-    ghost: COLORS.redGhost,
+    color: COLORS.coral,
+    ghost: '#FFF1F1',
     description: 'Medical emergency services',
   },
   {
@@ -112,8 +126,8 @@ const EMERGENCY_CONTACTS: EmergencyContact[] = [
     name: 'Women Helpline',
     number: '1091',
     icon: 'heart',
-    color: COLORS.red,
-    ghost: COLORS.redGhost,
+    color: COLORS.pink,
+    ghost: COLORS.pinkGhost,
     description: '24/7 women safety support',
   },
 ]
@@ -126,7 +140,7 @@ const HELPLINES: Helpline[] = [
     number: '1800-111-555',
     icon: 'phone-outline',
     color: COLORS.purple,
-    ghost: `${COLORS.purple}20`,
+    ghost: COLORS.purpleGhost,
     description: 'National citizen service',
   },
   {
@@ -143,8 +157,8 @@ const HELPLINES: Helpline[] = [
     name: 'Gender Helpline',
     number: '1800-233-3330',
     icon: 'phone-in-talk',
-    color: COLORS.red,
-    ghost: COLORS.redGhost,
+    color: COLORS.pinkDeep,
+    ghost: COLORS.pinkGhost,
     description: 'Gender-based violence support',
   },
   {
@@ -200,103 +214,90 @@ const SAFETY_TIPS: SafetyTip[] = [
 
 // ============ CONTACT CARD ============
 const ContactCard: React.FC<ContactCardProps> = ({ item, isEmergency = false }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start()
+  }
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start()
+  }
+
   const handleCall = (): void => {
     const phoneNumber = item.number.replace(/\D/g, '')
     const url = `tel:${phoneNumber}`
-
     Linking.canOpenURL(url)
       .then((supported: boolean) => {
-        if (supported) {
-          return Linking.openURL(url)
-        } else {
-          Alert.alert('Error', 'Cannot make phone calls on this device')
-        }
+        if (supported) return Linking.openURL(url)
+        else Alert.alert('Error', 'Cannot make phone calls on this device')
       })
-      .catch((err: Error) => {
-        console.error('Error:', err)
-        Alert.alert('Error', 'Failed to initiate call')
-      })
+      .catch(() => Alert.alert('Error', 'Failed to initiate call'))
   }
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.contactCard,
-        isEmergency && styles.emergencyCard,
-      ]}
-      onPress={handleCall}
-      activeOpacity={0.7}
-    >
-      <LinearGradient
-        colors={[item.ghost, `${item.color}15`]}
-        style={styles.cardGradient}
+    <Animated.View style={{ transform: [{ scale: scaleAnim }], marginBottom: 12 }}>
+      <TouchableOpacity
+        onPress={handleCall}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+        style={[
+          styles.contactCard,
+          isEmergency && {
+            borderColor: `${item.color}30`,
+            borderWidth: 1.5,
+          },
+        ]}
       >
+        {/* Left color strip */}
+        <View style={[styles.colorStrip, { backgroundColor: item.color }]} />
+
         <View style={styles.cardContent}>
-          <View style={[styles.iconBox, { backgroundColor: `${item.color}20` }]}>
-            <MaterialCommunityIcons
-              name={item.icon}
-              size={28}
-              color={item.color}
-            />
+          {/* Icon */}
+          <View style={[styles.iconBox, { backgroundColor: item.ghost }]}>
+            <MaterialCommunityIcons name={item.icon} size={26} color={item.color} />
           </View>
 
+          {/* Info */}
           <View style={styles.cardInfo}>
             <Text style={styles.contactName}>{item.name}</Text>
-            <Text style={styles.contactNumber}>{item.number}</Text>
+            <Text style={[styles.contactNumber, { color: item.color }]}>{item.number}</Text>
             <Text style={styles.contactDesc}>{item.description}</Text>
           </View>
 
-          <View style={styles.callButton}>
-            <MaterialCommunityIcons
-              name="phone"
-              size={20}
-              color="#fff"
-            />
-          </View>
+          {/* Call button */}
+          <LinearGradient
+            colors={[COLORS.pink, COLORS.pinkDeep]}
+            style={styles.callButton}
+          >
+            <MaterialCommunityIcons name="phone" size={18} color="#fff" />
+          </LinearGradient>
         </View>
-      </LinearGradient>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   )
 }
 
 // ============ SAFETY TIP CARD ============
 const SafetyTipCard: React.FC<SafetyTipCardProps> = ({ item, index }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const slideAnim = useRef(new Animated.Value(20)).current
+  const fadeAnim  = useRef(new Animated.Value(0)).current
+  const slideAnim = useRef(new Animated.Value(16)).current
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        delay: index * 80,
-        useNativeDriver: true,
+        toValue: 1, duration: 350, delay: index * 70, useNativeDriver: true,
       }),
       Animated.spring(slideAnim, {
-        toValue: 0,
-        friction: 9,
-        delay: index * 80,
-        useNativeDriver: true,
+        toValue: 0, friction: 10, delay: index * 70, useNativeDriver: true,
       }),
     ]).start()
-  }, [index, fadeAnim, slideAnim])
+  }, [])
 
   return (
-    <Animated.View
-      style={[
-        styles.tipCard,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
-      ]}
-    >
+    <Animated.View style={[styles.tipCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.tipIcon}>
-        <MaterialCommunityIcons
-          name={item.icon}
-          size={24}
-          color={COLORS.purple}
-        />
+        <MaterialCommunityIcons name={item.icon} size={22} color={COLORS.pinkDeep} />
       </View>
       <View style={styles.tipContent}>
         <Text style={styles.tipTitle}>{item.title}</Text>
@@ -309,55 +310,37 @@ const SafetyTipCard: React.FC<SafetyTipCardProps> = ({ item, index }) => {
 // ============ MAIN COMPONENT ============
 const Safety: React.FC = () => {
   const router = useRouter()
-
-  const headerFade = useRef(new Animated.Value(0)).current
-  const headerSlide = useRef(new Animated.Value(-20)).current
+  const headerFade  = useRef(new Animated.Value(0)).current
+  const headerSlide = useRef(new Animated.Value(-16)).current
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(headerFade, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.spring(headerSlide, {
-        toValue: 0,
-        friction: 9,
-        useNativeDriver: true,
-      }),
+      Animated.timing(headerFade,  { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.spring(headerSlide, { toValue: 0, friction: 10,  useNativeDriver: true }),
     ]).start()
-  }, [headerFade, headerSlide])
-
-  const handleBackPress = (): void => {
-    router.back()
-  }
+  }, [])
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.dark }}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.dark} />
+    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+
       <SafeAreaView style={styles.safeArea}>
+
         {/* ============ HEADER ============ */}
-        <Animated.View
-          style={[
-            styles.header,
-            {
-              opacity: headerFade,
-              transform: [{ translateY: headerSlide }],
-            },
-          ]}
-        >
-          <TouchableOpacity
-            onPress={handleBackPress}
-            style={styles.backBtn}
-          >
-            <MaterialCommunityIcons
-              name="chevron-left"
-              size={28}
-              color={COLORS.text}
-            />
+        <Animated.View style={[styles.header, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <MaterialCommunityIcons name="chevron-left" size={26} color={COLORS.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Safety & Emergency</Text>
-          <View style={{ width: 28 }} />
+
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Safety & Emergency</Text>
+            <View style={styles.headerPill}>
+              <View style={styles.headerPillDot} />
+              <Text style={styles.headerPillText}>Always available</Text>
+            </View>
+          </View>
+
+          <View style={{ width: 36 }} />
         </Animated.View>
 
         <ScrollView
@@ -365,83 +348,92 @@ const Safety: React.FC = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* ============ HERO ALERT ============ */}
+
+          {/* ============ HERO BANNER ============ */}
           <LinearGradient
-            colors={[COLORS.red, '#E11D48']}
+            colors={['#F43F8E', '#E11D6A', '#C2185B']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.heroAlert}
+            style={styles.heroBanner}
           >
-            <View style={styles.heroDeco} />
-            <MaterialCommunityIcons
-              name="alert-circle"
-              size={40}
-              color="#fff"
-              style={{ marginBottom: 12 }}
-            />
+            {/* Decorative circles */}
+            <View style={[styles.heroBubble, { width: 180, height: 180, top: -60, right: -50, opacity: 0.12 }]} />
+            <View style={[styles.heroBubble, { width: 100, height: 100, bottom: -30, left: -20, opacity: 0.10 }]} />
+
+            <View style={styles.heroIconWrap}>
+              <MaterialCommunityIcons name="shield-check" size={32} color="#fff" />
+            </View>
             <Text style={styles.heroTitle}>In Case of Emergency</Text>
             <Text style={styles.heroSub}>
-              Tap any contact below to call immediately. All calls are direct.
+              Tap any contact to call instantly. All numbers are direct.
             </Text>
+
+            {/* Quick stats row */}
+            <View style={styles.heroStats}>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatNum}>24/7</Text>
+                <Text style={styles.heroStatLabel}>Available</Text>
+              </View>
+              <View style={styles.heroStatDivider} />
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatNum}>Free</Text>
+                <Text style={styles.heroStatLabel}>All calls</Text>
+              </View>
+              <View style={styles.heroStatDivider} />
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatNum}>Fast</Text>
+                <Text style={styles.heroStatLabel}>Response</Text>
+              </View>
+            </View>
           </LinearGradient>
 
           {/* ============ EMERGENCY CONTACTS ============ */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={styles.sectionDot} />
+              <LinearGradient colors={[COLORS.pink, COLORS.pinkDeep]} style={styles.sectionAccent} />
               <Text style={styles.sectionTitle}>Emergency Services</Text>
+              <View style={styles.sectionBadge}>
+                <Text style={styles.sectionBadgeText}>{EMERGENCY_CONTACTS.length}</Text>
+              </View>
             </View>
-
-            {EMERGENCY_CONTACTS.map((contact) => (
-              <ContactCard
-                key={contact.id}
-                item={contact}
-                isEmergency={true}
-              />
-            ))}
+            {EMERGENCY_CONTACTS.map((c) => <ContactCard key={c.id} item={c} isEmergency />)}
           </View>
 
           {/* ============ HELPLINES ============ */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={styles.sectionDot} />
+              <LinearGradient colors={[COLORS.pink, COLORS.pinkDeep]} style={styles.sectionAccent} />
               <Text style={styles.sectionTitle}>Helplines & Support</Text>
+              <View style={styles.sectionBadge}>
+                <Text style={styles.sectionBadgeText}>{HELPLINES.length}</Text>
+              </View>
             </View>
-
-            {HELPLINES.map((helpline) => (
-              <ContactCard key={helpline.id} item={helpline} />
-            ))}
+            {HELPLINES.map((h) => <ContactCard key={h.id} item={h} />)}
           </View>
 
           {/* ============ SAFETY TIPS ============ */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={styles.sectionDot} />
+              <LinearGradient colors={[COLORS.pink, COLORS.pinkDeep]} style={styles.sectionAccent} />
               <Text style={styles.sectionTitle}>Safety Tips</Text>
             </View>
-
-            {SAFETY_TIPS.map((tip, index) => (
-              <SafetyTipCard key={tip.id} item={tip} index={index} />
-            ))}
+            {SAFETY_TIPS.map((tip, i) => <SafetyTipCard key={tip.id} item={tip} index={i} />)}
           </View>
 
           {/* ============ INFO CARD ============ */}
-          <View style={styles.infoCard}>
-            <MaterialCommunityIcons
-              name="information"
-              size={24}
-              color={COLORS.blue}
-              style={{ marginBottom: 12 }}
-            />
-            <Text style={styles.infoTitle}>Always Remember</Text>
+          <LinearGradient
+            colors={[COLORS.pinkGhost, '#FFF8FA']}
+            style={styles.infoCard}
+          >
+            <MaterialCommunityIcons name="heart-circle" size={28} color={COLORS.pink} style={{ marginBottom: 10 }} />
+            <Text style={styles.infoTitle}>You Are Never Alone</Text>
             <Text style={styles.infoText}>
-              You are never alone. Help is always available. Don't hesitate to
-              reach out to authorities or trusted contacts. Your safety and
-              well-being are the priority.
+              Help is always available. Don't hesitate to reach out to authorities
+              or trusted contacts. Your safety and well-being are the priority.
             </Text>
-          </View>
+          </LinearGradient>
 
-          <View style={{ height: 30 }} />
+          <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -453,63 +445,103 @@ export default Safety
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: COLORS.bg,
   },
 
-  // ============ HEADER ============
+  // ── HEADER ────────────────────────────────────────────────
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.darkCard,
+    paddingTop: 43,          // ✅ marginTop 43 as requested
+    paddingBottom: 14,
+    backgroundColor: COLORS.bg,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
 
   backBtn: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: COLORS.pinkGhost,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  headerCenter: {
+    alignItems: 'center',
   },
 
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: COLORS.text,
+    letterSpacing: 0.2,
   },
 
-  // ============ SCROLL ============
-  scroll: {
-    flex: 1,
+  headerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
   },
+
+  headerPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.green,
+  },
+
+  headerPillText: {
+    fontSize: 10,
+    color: COLORS.green,
+    fontWeight: '600',
+  },
+
+  // ── SCROLL ────────────────────────────────────────────────
+  scroll: { flex: 1, backgroundColor: COLORS.bgSoft },
 
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 20,
     paddingBottom: 16,
   },
 
-  // ============ HERO ALERT ============
-  heroAlert: {
-    borderRadius: 20,
+  // ── HERO BANNER ───────────────────────────────────────────
+  heroBanner: {
+    borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     marginBottom: 28,
     overflow: 'hidden',
   },
 
-  heroDeco: {
+  heroBubble: {
     position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    top: -60,
-    right: -40,
+    borderRadius: 999,
+    backgroundColor: '#fff',
+  },
+
+  heroIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
   },
 
   heroTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: '#fff',
     textAlign: 'center',
@@ -518,14 +550,48 @@ const styles = StyleSheet.create({
 
   heroSub: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.85)',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 19,
+    marginBottom: 20,
   },
 
-  // ============ SECTION ============
+  heroStats: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    gap: 0,
+  },
+
+  heroStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  heroStatNum: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#fff',
+  },
+
+  heroStatLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+
+  heroStatDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    marginVertical: 4,
+  },
+
+  // ── SECTION ───────────────────────────────────────────────
   section: {
-    marginBottom: 28,
+    marginBottom: 24,
   },
 
   sectionHeader: {
@@ -535,47 +601,68 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
 
-  sectionDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.amber,
+  sectionAccent: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
   },
 
   sectionTitle: {
-    fontSize: 12,
+    flex: 1,
+    fontSize: 13,
     fontWeight: '700',
-    color: COLORS.textSub,
-    letterSpacing: 1,
+    color: COLORS.text,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
 
-  // ============ CONTACT CARD ============
+  sectionBadge: {
+    backgroundColor: COLORS.pinkLight,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+
+  sectionBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.pinkDeep,
+  },
+
+  // ── CONTACT CARD ──────────────────────────────────────────
   contactCard: {
-    marginBottom: 12,
+    backgroundColor: COLORS.card,
     borderRadius: 18,
     overflow: 'hidden',
+    flexDirection: 'row',
+    shadowColor: '#E11D6A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
 
-  emergencyCard: {
-    borderWidth: 1.5,
-    borderColor: `${COLORS.red}40`,
-  },
-
-  cardGradient: {
-    padding: 0,
+  colorStrip: {
+    width: 4,
+    borderRadius: 2,
+    margin: 12,
+    marginRight: 0,
   },
 
   cardContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    gap: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 12,
   },
 
   iconBox: {
-    width: 48,
-    height: 48,
+    width: 46,
+    height: 46,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -589,54 +676,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 4,
+    marginBottom: 3,
   },
 
   contactNumber: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    color: COLORS.purple,
-    marginBottom: 4,
+    marginBottom: 3,
   },
 
   contactDesc: {
     fontSize: 11,
     color: COLORS.textMute,
+    lineHeight: 15,
   },
 
   callButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.purple,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  // ============ SAFETY TIP CARD ============
+  // ── SAFETY TIP CARD ───────────────────────────────────────
   tipCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 14,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
 
   tipIcon: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderRadius: 12,
-    backgroundColor: `${COLORS.purple}20`,
+    backgroundColor: COLORS.pinkGhost,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  tipContent: {
-    flex: 1,
-  },
+  tipContent: { flex: 1 },
 
   tipTitle: {
     fontSize: 13,
@@ -651,22 +740,21 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  // ============ INFO CARD ============
+  // ── INFO CARD ─────────────────────────────────────────────
   infoCard: {
-    backgroundColor: `${COLORS.blueGhost}20`,
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 20,
+    padding: 22,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: `${COLORS.blue}40`,
-    marginBottom: 16,
+    borderColor: COLORS.pinkLight,
+    marginBottom: 10,
   },
 
   infoTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: COLORS.text,
-    marginBottom: 10,
+    marginBottom: 8,
     textAlign: 'center',
   },
 
