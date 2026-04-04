@@ -3,17 +3,30 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import http from 'http';
+import { Server } from 'socket.io';
+
 import authRoutes from './src/routes/auth.routes.js';
 import audioRoutes from './src/routes/audio.routes.js'; 
 import { locationSocket } from "./sockets/location.socket.js";
-
-const http = require*('http');
-const Server = http.createServer(app);
-
+import locationRoutes from './src/routes/location.routes.js';
 
 dotenv.config();
 
 const app = express();
+
+// ✅ create HTTP server
+const server = http.createServer(app);
+
+// ✅ attach socket.io properly
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  },
+});
+
+// 🔥 socket logic
+locationSocket(io);
 
 // Middleware
 app.use(cors({
@@ -23,34 +36,28 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-const io = new Server(server, {
-  cors: { origin: "*" },
-});
-
-
-locationSocket(io);
-
 app.use('/uploads', express.static('uploads'));
 
 // Routes
 app.use('/api', authRoutes);
-
-// routes
 app.use('/api/aud', audioRoutes);
+app.use('/api/location', locationRoutes);
 
-// ✅ FIX: remove '*' here
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     message: `Route not found: ${req.method} ${req.originalUrl}`
   });
 });
 
-// MongoDB connection
+// MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
+
+// ❗ IMPORTANT: use server.listen NOT app.listen
+server.listen(PORT, () => {
   console.log(`🚀 Server running on http://10.252.189.103:${PORT}`);
 });

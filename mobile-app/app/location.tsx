@@ -6,7 +6,7 @@ const location = () => {
   return (
     <View>
       <Text>location</Text>
-      <ShareButton/>
+      <ShareButton sessionId={''}/>
     </View> 
   )
 }
