@@ -35,6 +35,10 @@ app.use('/api/location',         locationRoutes);
 app.use('/api/trustedContacts',  trustedContactsRoutes); // ✅ fixed: hyphen hata ke camelCase
 app.use('/api/sos',              sosRoutes);             // ✅ NEW
 
+
+app.get('/', (req, res) => {  
+  res.send('🚀 Server is running!')
+  });
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
@@ -42,9 +46,6 @@ app.use((req, res) => {
   });
 });
 
-app.get('/', (req, res) => {  
-  res.send('🚀 Server is running!')
-  });
 
 // MongoDB
 mongoose.connect(process.env.MONGODB_URI)
