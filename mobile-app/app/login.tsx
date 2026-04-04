@@ -110,52 +110,138 @@ const Login = () => {
     try {
       setLoading(true);
       setError('');
+      console.log('📱 Requesting OTP for:', cleanedPhone);
+      
       const res  = await fetch(`${BASE_URL}/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cleanedPhone }),
       });
       const data = await res.json();
+      
+      console.log('📱 Complete OTP Response:', data);
+      
       if (!res.ok) throw new Error(data?.message || 'OTP bhejne me problem aayi');
 
       setStep('otp');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (data?.otp) Alert.alert('OTP Sent', `Demo OTP: ${data.otp}`);
-      else           Alert.alert('OTP Sent', 'OTP successfully send ho gaya');
+      
+      // ✅ Extract OTP from backend response - check all possible locations
+      let otpValue = null;
+      
+      // Check nested data object
+      if (data?.data?.otp) {
+        otpValue = data.data.otp;
+        console.log('✅ OTP found in data.data.otp:', otpValue);
+      }
+      // Check direct otp field
+      else if (data?.otp) {
+        otpValue = data.otp;
+        console.log('✅ OTP found in data.otp:', otpValue);
+      }
+      
+      if (otpValue) {
+        // ✅ Show OTP in beautiful pop-up
+        Alert.alert(
+          '✅ OTP Sent Successfully',
+          `Your OTP is:\n\n🔐 ${otpValue}\n\nThis will expire in 5 minutes.\nDo not share this with anyone!`,
+          [
+            { 
+              text: 'Got it', 
+              onPress: () => {
+                console.log('✅ User acknowledged OTP:', otpValue);
+              },
+              style: 'default'
+            }
+          ]
+        );
+      } else {
+        console.log('⚠️ OTP not found in response, showing generic message');
+        Alert.alert(
+          '✅ OTP Sent Successfully',
+          `OTP bhej diya gaya +91${cleanedPhone} pe.\n\nPlease check your phone and enter the OTP.`,
+          [
+            { 
+              text: 'OK', 
+              onPress: () => {}
+            }
+          ]
+        );
+      }
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
       triggerShake();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.error('❌ OTP Request Error:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const verifyOtp = async () => {
-    if (!isPhoneValid) { setError('Invalid phone number'); triggerShake(); return; }
-    if (!isOtpValid)   { setError('OTP 4 digits ka hona chahiye'); triggerShake(); return; }
+    if (!isPhoneValid) { 
+      setError('Invalid phone number'); 
+      triggerShake(); 
+      return; 
+    }
+    if (!isOtpValid) { 
+      setError('OTP 4 digits ka hona chahiye'); 
+      triggerShake(); 
+      return; 
+    }
     try {
       setLoading(true);
       setError('');
+      console.log('🔐 Verifying OTP for:', cleanedPhone);
+      console.log('🔐 OTP entered:', cleanedOtp);
+      
       const res  = await fetch(`${BASE_URL}/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cleanedPhone, otp: cleanedOtp }),
       });
       const data = await res.json();
+      
+      console.log('✅ Verification Response:', data);
+      
       if (!res.ok) throw new Error(data?.message || 'OTP verify nahi hua');
 
-      if (data?.token)  await SecureStore.setItemAsync('token', data.token);
-      if (data?.userId) await SecureStore.setItemAsync('userId', data.userId);
-      await SecureStore.setItemAsync('phone', cleanedPhone);
+      // ✅ Save token and phone - check all possible locations
+      if (data?.data?.authToken) {
+        await SecureStore.setItemAsync('authToken', data.data.authToken);
+        console.log('✅ Saved authToken from data.data.authToken');
+      }
+      if (data?.data?.phone) {
+        await SecureStore.setItemAsync('userPhone', data.data.phone);
+        console.log('✅ Saved userPhone from data.data.phone');
+      }
+      
+      if (data?.authToken) {
+        await SecureStore.setItemAsync('authToken', data.authToken);
+        console.log('✅ Saved authToken from data.authToken');
+      }
+      if (data?.phone) {
+        await SecureStore.setItemAsync('userPhone', data.phone);
+        console.log('✅ Saved userPhone from data.phone');
+      }
 
-      Alert.alert('Success', 'Login successful');
+      console.log('✅ Login successful for phone:', cleanedPhone);
+      
+      Alert.alert('✅ Success', 'Login successful! Welcome to ShadowSafe 🛡️', [
+        {
+          text: 'OK',
+          onPress: () => {
+            router.replace('/home');
+          }
+        }
+      ]);
+      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push('/home');
     } catch (err: any) {
       setError(err.message || 'Verification failed');
       triggerShake();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.error('❌ Verification Error:', err);
     } finally {
       setLoading(false);
     }
@@ -213,7 +299,7 @@ const Login = () => {
             <Text style={styles.subtitle}>
               {step === 'phone'
                 ? 'Enter your mobile number to sign in'
-                : `OTP sent to +${cleanedPhone}`}
+                : `OTP sent to +91${cleanedPhone}`}
             </Text>
 
             {/* Phone field */}
@@ -475,7 +561,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-/* ── Button (continued) ── */
+
+  /* ── Button ── */
   button: {
     width: '100%',
     height: 52,

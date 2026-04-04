@@ -8,8 +8,12 @@
 //    4. Preset name + Cloud name niche daalo
 // ─────────────────────────────────────────────────────────────
 
-const CLOUDINARY_CLOUD_NAME = 'dji1t0vry';    // 🔁 apna cloud name daalo
-const CLOUDINARY_UPLOAD_PRESET = 'shadowsafe'; // 🔁 unsigned preset name daalo
+
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME!;
+const CLOUDINARY_UPLOAD_PRESET = process.env.CLOUDINARY_UPLOAD_PRESET!;
+
+
+
 const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
 // ⚠️  Audio bhi "video" endpoint pe jaati hai Cloudinary mein — yeh sahi hai
 

@@ -1,14 +1,13 @@
 // controller/auth.controller.js
 import User from '../models/user.model.js';
-import { generateOtp } from '../utils/otp.js'; // OTP generation utility
-import { sendSMS } from '../utils/sms.js'; // SMS service
+import { generateOtp } from '../utils/otp.js';
+import { sendSMS } from '../utils/sms.js';
 
 // ============ SEND OTP ============
 export const sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
 
-    // ✅ VALIDATION
     if (!phone) {
       return res.status(400).json({
         success: false,
@@ -16,22 +15,18 @@ export const sendOtp = async (req, res) => {
       });
     }
 
-    // ✅ GENERATE OTP
     const otp = generateOtp();
     console.log(`🔐 Generated OTP for ${phone}: ${otp}`);
 
-    // ✅ SAVE OTP TO DATABASE (with expiry)
-    const expiryTime = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
+    const expiryTime = new Date(Date.now() + 5 * 60 * 1000);
 
     let user = await User.findOne({ phone });
 
     if (user) {
-      // Update existing user
       user.otp = otp;
       user.otpExpiry = expiryTime;
       await user.save();
     } else {
-      // Create new user
       user = await User.create({
         phone,
         otp,
@@ -39,7 +34,6 @@ export const sendOtp = async (req, res) => {
       });
     }
 
-    // ✅ SEND SMS
     // await sendSMS(phone, `Your OTP is: ${otp}`);
 
     console.log('✅ OTP sent successfully');
@@ -47,9 +41,10 @@ export const sendOtp = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'OTP sent successfully',
-      phone, // ✅ SEND BACK PHONE FOR FRONTEND
+      phone,
       data: {
         phone,
+        otp,           // ✅ DEV MODE: Frontend ko OTP dikhane ke liye
         otpExpiry: expiryTime,
       },
     });
@@ -68,7 +63,6 @@ export const verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
 
-    // ✅ VALIDATION
     if (!phone || !otp) {
       return res.status(400).json({
         success: false,
@@ -76,7 +70,6 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // ✅ FIND USER
     const user = await User.findOne({ phone });
 
     if (!user) {
@@ -86,7 +79,6 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // ✅ CHECK OTP
     if (user.otp !== otp) {
       return res.status(400).json({
         success: false,
@@ -94,7 +86,6 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // ✅ CHECK OTP EXPIRY
     if (new Date() > user.otpExpiry) {
       return res.status(400).json({
         success: false,
@@ -102,11 +93,9 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // ✅ GENERATE TOKEN (JWT or session)
-    const authToken = user._id.toString(); // Simple token, use JWT in production
+    const authToken = user._id.toString();
     console.log(`✅ Generated auth token for ${phone}`);
 
-    // ✅ CLEAR OTP AFTER VERIFICATION
     user.otp = null;
     user.otpExpiry = null;
     user.isVerified = true;
@@ -115,13 +104,12 @@ export const verifyOtp = async (req, res) => {
 
     console.log('✅ OTP verified successfully');
 
-    // ✅ RETURN RESPONSE WITH PHONE NUMBER AND TOKEN
     res.status(200).json({
       success: true,
       message: 'OTP verified successfully',
       data: {
-        phone, // ✅ IMPORTANT: Return phone number
-        authToken, // ✅ IMPORTANT: Return token
+        phone,
+        authToken,
         user: {
           id: user._id,
           phone: user.phone,
@@ -142,9 +130,8 @@ export const verifyOtp = async (req, res) => {
 // ============ LOGOUT ============
 export const logout = async (req, res) => {
   try {
-    const userId = req.userId; // From auth middleware
+    const userId = req.userId;
 
-    // ✅ UPDATE USER STATUS
     await User.findByIdAndUpdate(userId, {
       isActive: false,
       lastLogoutAt: new Date(),
