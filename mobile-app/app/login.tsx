@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -6,123 +6,153 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Smartphone, Phone } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
-const BASE_URL = 'http://10.252.189.103:8000/api'; 
-// Example:
-// Android emulator -> http://10.0.2.2:5000/api/auth
-// iPhone physical device -> http://192.168.1.5:5000/api/auth
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_URL = 'http://10.252.189.103:8000/api';
 
 const Login = () => {
-  const navigation = useNavigation();
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // ─── Entrance animations ───────────────────────────────────────────────
+  const fadeAnim   = useRef(new Animated.Value(0)).current;
+  const slideAnim  = useRef(new Animated.Value(40)).current;
+  const scaleAnim  = useRef(new Animated.Value(0.93)).current;
+
+  // Icon pulse (infinite subtle scale)
+  const iconPulse  = useRef(new Animated.Value(1)).current;
+
+  // Button press scale
+  const btnScale   = useRef(new Animated.Value(1)).current;
+
+  // OTP field slide-in
+  const otpSlide   = useRef(new Animated.Value(20)).current;
+  const otpFade    = useRef(new Animated.Value(0)).current;
+
+  // Error shake
+  const shakeAnim  = useRef(new Animated.Value(0)).current;
+
   const cleanedPhone = useMemo(() => phone.replace(/\D/g, ''), [phone]);
-  const cleanedOtp = useMemo(() => otp.replace(/\D/g, ''), [otp]);
+  const cleanedOtp   = useMemo(() => otp.replace(/\D/g, ''), [otp]);
 
   const isPhoneValid = cleanedPhone.length === 10 || cleanedPhone.length === 12;
-  const isOtpValid = cleanedOtp.length === 4;
+  const isOtpValid   = cleanedOtp.length === 4;
 
+  // Entrance
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 1, duration: 550, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, friction: 9, tension: 55, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 8, tension: 50, useNativeDriver: true }),
+    ]).start();
+
+    // Icon pulse loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(iconPulse, { toValue: 1.07, duration: 1200, useNativeDriver: true }),
+        Animated.timing(iconPulse, { toValue: 1.00, duration: 1200, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  // OTP field entrance when step changes
+  useEffect(() => {
+    if (step === 'otp') {
+      otpSlide.setValue(20);
+      otpFade.setValue(0);
+      Animated.parallel([
+        Animated.timing(otpFade,  { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.spring(otpSlide, { toValue: 0, friction: 9, tension: 60, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [step]);
+
+  // Shake on error
+  const triggerShake = () => {
+    shakeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue:  8, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue:  6, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue:  0, duration: 60, useNativeDriver: true }),
+    ]).start();
+  };
+
+  // Button press feedback
+  const onBtnPressIn  = () => Animated.spring(btnScale, { toValue: 0.96, useNativeDriver: true }).start();
+  const onBtnPressOut = () => Animated.spring(btnScale, { toValue: 1.00, friction: 5, useNativeDriver: true }).start();
+
+  // ─── API calls ─────────────────────────────────────────────────────────
   const requestOtp = async () => {
     if (!isPhoneValid) {
       setError('Phone number 10 ya 12 digits ka hona chahiye');
+      triggerShake();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-
     try {
       setLoading(true);
       setError('');
-
-      const res = await fetch(`${BASE_URL}/send-otp`, {
+      const res  = await fetch(`${BASE_URL}/send-otp`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: cleanedPhone }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.message || 'OTP bhejne me problem aayi');
-      }
-
+      if (!res.ok) throw new Error(data?.message || 'OTP bhejne me problem aayi');
       setStep('otp');
-
-      // Dev mode only, because backend is returning otp
-      if (data?.otp) {
-        Alert.alert('OTP Sent', `Demo OTP: ${data.otp}`);
-      } else {
-        Alert.alert('OTP Sent', 'OTP successfully send ho gaya');
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (data?.otp) Alert.alert('OTP Sent', `Demo OTP: ${data.otp}`);
+      else           Alert.alert('OTP Sent', 'OTP successfully send ho gaya');
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
+      triggerShake();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
     }
   };
 
   const verifyOtp = async () => {
-    if (!isPhoneValid) {
-      setError('Invalid phone number');
-      return;
-    }
-
-    if (!isOtpValid) {
-      setError('OTP 4 digits ka hona chahiye');
-      return;
-    }
-
+    if (!isPhoneValid) { setError('Invalid phone number'); triggerShake(); return; }
+    if (!isOtpValid)   { setError('OTP 4 digits ka hona chahiye'); triggerShake(); return; }
     try {
       setLoading(true);
       setError('');
-
-      const res = await fetch(`${BASE_URL}/verify-otp`, {
+      const res  = await fetch(`${BASE_URL}/verify-otp`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phone: cleanedPhone,
-          otp: cleanedOtp,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanedPhone, otp: cleanedOtp }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.message || 'OTP verify nahi hua');
-      }
-
-      if (data?.token) {
-        await SecureStore.setItemAsync('token', data.token);
-      }
-
-      if (data?.userId) {
-        await SecureStore.setItemAsync('userId', data.userId);
-      }
-
+      if (!res.ok) throw new Error(data?.message || 'OTP verify nahi hua');
+      if (data?.token)  await SecureStore.setItemAsync('token', data.token);
+      if (data?.userId) await SecureStore.setItemAsync('userId', data.userId);
       await SecureStore.setItemAsync('phone', cleanedPhone);
-
       Alert.alert('Success', 'Login successful');
-      
-      // yahan navigation laga do:
-       router.push('/home');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.push('/home');
     } catch (err: any) {
       setError(err.message || 'Verification failed');
+      triggerShake();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
     }
@@ -132,109 +162,150 @@ const Login = () => {
     setStep('phone');
     setOtp('');
     setError('');
+    Haptics.selectionAsync();
   };
 
+  // ─── Render ────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.card}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>ShadowSafe - AI</Text>
-            </View>
+      <StatusBar barStyle="dark-content" backgroundColor="#FCE4EC" />
 
-            <Text style={styles.title}>Welcome back</Text>
+      <LinearGradient
+        colors={['#FCE4EC', '#F8BBD0', '#FCE4EC']}
+        style={styles.background}
+      >
+        <KeyboardAvoidingView
+          style={styles.centerWrap}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Card entrance */}
+          <Animated.View
+            style={[
+              styles.card,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  { translateY: slideAnim },
+                  { scale: scaleAnim },
+                  { translateX: shakeAnim },
+                ],
+              },
+            ]}
+          >
+            {/* ── Icon ── */}
+            <Animated.View
+              style={[styles.iconWrapper, { transform: [{ scale: iconPulse }] }]}
+            >
+              <LinearGradient
+                colors={['#F472B6', '#EC4899', '#DB2777']}
+                style={styles.iconBg}
+              >
+                <Smartphone size={32} color="#fff" strokeWidth={1.8} />
+              </LinearGradient>
+            </Animated.View>
+
+            {/* ── Title ── */}
+            <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>
-              Enter your phone number to receive OTP and login to your account.
+              {step === 'phone'
+                ? 'Enter your mobile number to sign in'
+                : `OTP sent to +${cleanedPhone}`}
             </Text>
 
-            <View style={styles.form}>
-              <Text style={styles.label}>Phone Number</Text>
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Enter 10 or 12 digit phone"
-                placeholderTextColor="#7C8BA1"
-                keyboardType="phone-pad"
-                maxLength={12}
-                editable={!loading && step === 'phone'}
+            {/* ── Phone field ── */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Mobile Number</Text>
+              <View style={[styles.inputRow, step === 'otp' && styles.inputRowDisabled]}>
+                <Phone size={18} color="#EC4899" strokeWidth={1.8} />
+                <TextInput
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="+1 (555) 000-0000"
+                  placeholderTextColor="#C4B5C0"
+                  keyboardType="phone-pad"
+                  maxLength={12}
+                  editable={!loading && step === 'phone'}
+                  style={styles.input}
+                />
+              </View>
+            </View>
+
+            {/* ── OTP field (animated in) ── */}
+            {step === 'otp' && (
+              <Animated.View
                 style={[
-                  styles.input,
-                  step === 'otp' && styles.inputDisabled,
+                  styles.fieldGroup,
+                  { opacity: otpFade, transform: [{ translateY: otpSlide }] },
                 ]}
-              />
-
-              {step === 'otp' && (
-                <>
-                  <View style={styles.otpHeader}>
-                    <Text style={styles.label}>OTP</Text>
-                    <Pressable onPress={goBackToPhone}>
-                      <Text style={styles.changeText}>Change number</Text>
-                    </Pressable>
-                  </View>
-
+              >
+                <View style={styles.otpLabelRow}>
+                  <Text style={styles.label}>Enter OTP</Text>
+                  <Pressable onPress={goBackToPhone}>
+                    <Text style={styles.changeText}>Change number?</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.inputRow}>
                   <TextInput
                     value={otp}
                     onChangeText={setOtp}
-                    placeholder="Enter 4 digit OTP"
-                    placeholderTextColor="#7C8BA1"
+                    placeholder="- - - -"
+                    placeholderTextColor="#C4B5C0"
                     keyboardType="number-pad"
                     maxLength={4}
                     editable={!loading}
-                    style={styles.input}
+                    style={[styles.input, styles.otpInput]}
+                    textAlign="center"
                   />
-                </>
-              )}
+                </View>
+              </Animated.View>
+            )}
 
-              {!!error && <Text style={styles.errorText}>{error}</Text>}
+            {/* ── Error ── */}
+            {!!error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
 
-              {step === 'phone' ? (
+            {/* ── Button (press scale) ── */}
+            <Animated.View style={[styles.buttonWrap, { transform: [{ scale: btnScale }] }]}>
+              <LinearGradient
+                colors={['#F472B6', '#EC4899', '#DB2777']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[
+                  styles.button,
+                  ((step === 'phone' ? !isPhoneValid : !isOtpValid) || loading) &&
+                    styles.buttonDisabled,
+                ]}
+              >
                 <Pressable
-                  style={[
-                    styles.button,
-                    (!isPhoneValid || loading) && styles.buttonDisabled,
-                  ]}
-                  onPress={requestOtp}
-                  disabled={!isPhoneValid || loading}
+                  style={styles.buttonInner}
+                  onPress={step === 'phone' ? requestOtp : verifyOtp}
+                  onPressIn={onBtnPressIn}
+                  onPressOut={onBtnPressOut}
+                  disabled={(step === 'phone' ? !isPhoneValid : !isOtpValid) || loading}
+                  android_ripple={{ color: 'rgba(255,255,255,0.25)' }}
                 >
                   {loading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <Text style={styles.buttonText}>Send OTP</Text>
+                    <Text style={styles.buttonText}>
+                      {step === 'phone' ? 'Get OTP' : 'Verify & Login'}
+                    </Text>
                   )}
                 </Pressable>
-              ) : (
-                <Pressable
-                  style={[
-                    styles.button,
-                    (!isOtpValid || loading) && styles.buttonDisabled,
-                  ]}
-                  onPress={verifyOtp}
-                  disabled={!isOtpValid || loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.buttonText}>Verify OTP</Text>
-                  )}
-                </Pressable>
-              )}
-            </View>
+              </LinearGradient>
+            </Animated.View>
 
+            {/* ── Footer ── */}
             <Text style={styles.footerText}>
-              Continue karke tum OTP based authentication use kar rahe ho.
+              By continuing, you agree to our{' '}
+              <Text style={styles.footerLink}>Terms & Privacy Policy</Text>
             </Text>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     </SafeAreaView>
   );
 };
@@ -242,111 +313,183 @@ const Login = () => {
 export default Login;
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: '#FCE4EC',
   },
-  container: {
-    flexGrow: 1,
+  background: {
+    flex: 1,
+  },
+
+  // Centers card vertically & horizontally — no ScrollView
+  centerWrap: {
+    flex: 1,
     justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#0B1220',
+    alignItems: 'center',
+    paddingHorizontal: 24,
   },
+
+  /* ── Card ── */
   card: {
-    backgroundColor: '#121A2B',
-    borderRadius: 24,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: '#1E293B',
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    paddingHorizontal: 28,
+    paddingTop: 36,
+    paddingBottom: 32,
+    alignItems: 'center',
+    shadowColor: '#D63384',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.14,
+    shadowRadius: 28,
+    elevation: 12,
   },
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#1D4ED8',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginBottom: 16,
+
+  /* ── Icon ── */
+  iconWrapper: {
+    marginBottom: 22,
+    shadowColor: '#EC4899',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.38,
+    shadowRadius: 14,
+    elevation: 8,
   },
-  badgeText: {
-    color: '#DBEAFE',
-    fontSize: 12,
-    fontWeight: '700',
+  iconBg: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+
+  /* ── Text ── */
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
-    color: '#F8FAFC',
+    color: '#EC4899',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15,
-    color: '#94A3B8',
-    lineHeight: 22,
-    marginBottom: 24,
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 28,
+    paddingHorizontal: 8,
   },
-  form: {
-    gap: 14,
+
+  /* ── Fields ── */
+  fieldGroup: {
+    width: '100%',
+    marginBottom: 14,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#E2E8F0',
-    marginBottom: 8,
-  },
-  input: {
-    height: 54,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#F8FAFC',
-    marginBottom: 4,
-  },
-  inputDisabled: {
-    opacity: 0.6,
-  },
-  otpHeader: {
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  changeText: {
-    color: '#60A5FA',
     fontSize: 13,
     fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  otpLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  changeText: {
+    fontSize: 12,
+    color: '#EC4899',
+    fontWeight: '600',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F3F4F6',
+    borderRadius: 14,
+    backgroundColor: '#FAFAFA',
+    paddingHorizontal: 14,
+    height: 52,
+    gap: 10,
+  },
+  inputRowDisabled: {
+    opacity: 0.5,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    height: '100%',
+  },
+  otpInput: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: 12,
+    color: '#EC4899',
+    textAlign: 'center',
+  },
+
+  /* ── Error ── */
+  errorBox: {
+    width: '100%',
+    backgroundColor: '#FEE2E2',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  /* ── Button ── */
+  buttonWrap: {
+    width: '100%',
+    marginTop: 8,
   },
   button: {
-    height: 54,
-    backgroundColor: '#2563EB',
-    borderRadius: 16,
+    width: '100%',
+    height: 52,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#EC4899',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.42,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  buttonInner: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
   },
   buttonDisabled: {
-    opacity: 0.55,
+    opacity: 0.5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+    letterSpacing: 0.4,
   },
-  errorText: {
-    color: '#FCA5A5',
-    fontSize: 13,
-    marginTop: 2,
-  },
+
+  /* ── Footer ── */
   footerText: {
-    color: '#64748B',
-    fontSize: 12,
-    lineHeight: 18,
     marginTop: 20,
+    fontSize: 12,
+    color: '#9CA3AF',
     textAlign: 'center',
+    lineHeight: 18,
+  },
+  footerLink: {
+    color: '#EC4899',
+    fontWeight: '600',
   },
 });

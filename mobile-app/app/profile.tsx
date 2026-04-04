@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   StyleSheet,
   Text,
@@ -10,292 +10,287 @@ import {
   ScrollView,
   Modal,
   FlatList,
+  StatusBar,
+  Animated,
 } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
+import { LinearGradient } from 'expo-linear-gradient'
 
-const COLORS = {
-  dark: '#0B1220',
-  card: '#121A2B',
-  purple: '#7C3AED',
-  text: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  border: '#1E293B',
-  red: '#EF4444',
+// ─── Design tokens — same as Login & Home ────────────────────────────────────
+const C = {
+  bg:           '#FFFFFF',
+  bgGradStart:  '#FCE4EC',
+  bgGradMid:    '#F8BBD0',
+  surface:      '#FFFFFF',
+  pink:         '#EC4899',
+  pinkLight:    '#F472B6',
+  pinkDeep:     '#DB2777',
+  pinkGhost:    '#FCE7F3',
+  pinkBorder:   '#FBCFE8',
+  text:         '#111827',
+  textSub:      '#6B7280',
+  textMuted:    '#9CA3AF',
+  red:          '#EF4444',
+  redGhost:     '#FEE2E2',
+  green:        '#10B981',
+  greenGhost:   '#D1FAE5',
+  border:       '#FBCFE8',
+  shadow:       '#D63384',
 }
 
-// ============ AVATAR ICONS ============
+// ─── Avatar options ───────────────────────────────────────────────────────────
 const AVATAR_OPTIONS = [
-  { id: 1, icon: 'account-circle', name: 'Circle' },
-  { id: 2, icon: 'account', name: 'Account' },
-  { id: 3, icon: 'face-man', name: 'Man' },
-  { id: 4, icon: 'face-woman', name: 'Woman' },
-  { id: 5, icon: 'dumbbell', name: 'Dumbbell' },
-  { id: 6, icon: 'soccer', name: 'Soccer' },
-  { id: 7, icon: 'basketball', name: 'Basketball' },
-  { id: 8, icon: 'music', name: 'Music' },
-  { id: 9, icon: 'heart', name: 'Heart' },
-  { id: 10, icon: 'star', name: 'Star' },
-  { id: 11, icon: 'zap', name: 'Lightning' },
-  { id: 12, icon: 'shield', name: 'Shield' },
+  { id: 1,  icon: 'account-circle',  name: 'Circle'    },
+  { id: 2,  icon: 'account',         name: 'Account'   },
+  { id: 3,  icon: 'face-man',        name: 'Man'       },
+  { id: 4,  icon: 'face-woman',      name: 'Woman'     },
+  { id: 5,  icon: 'dumbbell',        name: 'Dumbbell'  },
+  { id: 6,  icon: 'soccer',          name: 'Soccer'    },
+  { id: 7,  icon: 'basketball',      name: 'Basketball'},
+  { id: 8,  icon: 'music',           name: 'Music'     },
+  { id: 9,  icon: 'heart',           name: 'Heart'     },
+  { id: 10, icon: 'star',            name: 'Star'      },
+  { id: 11, icon: 'lightning-bolt',  name: 'Lightning' },
+  { id: 12, icon: 'shield-check',    name: 'Shield'    },
 ]
 
-interface UserDataType {
-  phone: string
-  avatar: string
-}
+interface UserDataType { phone: string; avatar: string }
 
 const Profile = () => {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [userData, setUserData] = useState<UserDataType>({
-    phone: '',
-    avatar: 'account-circle',
-  })
+  const [loading, setLoading]       = useState(true)
+  const [userData, setUserData]     = useState<UserDataType>({ phone: '', avatar: 'account-circle' })
   const [modalVisible, setModalVisible] = useState(false)
 
-  // ✅ USE FOCUSEFFECT TO RELOAD DATA WHEN SCREEN IS FOCUSED
+  // ── Entrance animations ──────────────────────────────────────────────────
+  const headerFade  = useRef(new Animated.Value(0)).current
+  const headerSlide = useRef(new Animated.Value(-16)).current
+  const avatarScale = useRef(new Animated.Value(0.85)).current
+  const avatarFade  = useRef(new Animated.Value(0)).current
+  const cardFade    = useRef(new Animated.Value(0)).current
+  const cardSlide   = useRef(new Animated.Value(24)).current
+  // Avatar ring pulse
+  const ringPulse   = useRef(new Animated.Value(1)).current
+
+  const runEntrance = () => {
+    Animated.stagger(80, [
+      Animated.parallel([
+        Animated.timing(headerFade,  { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.spring(headerSlide, { toValue: 0, friction: 9,   useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(avatarFade,  { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.spring(avatarScale, { toValue: 1, friction: 7, tension: 50, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(cardFade,  { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.spring(cardSlide, { toValue: 0, friction: 9,   useNativeDriver: true }),
+      ]),
+    ]).start()
+
+    // Pulse ring loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(ringPulse, { toValue: 1.06, duration: 1300, useNativeDriver: true }),
+        Animated.timing(ringPulse, { toValue: 1.00, duration: 1300, useNativeDriver: true }),
+      ])
+    ).start()
+  }
+
+  // ── Load data ────────────────────────────────────────────────────────────
   useFocusEffect(
     React.useCallback(() => {
-      console.log('📱 Profile screen focused, loading data...')
       loadUserData()
     }, [])
   )
 
-  // ============ LOAD USER DATA ============
   const loadUserData = async () => {
     try {
       setLoading(true)
-      console.log('🔄 Loading user data from SecureStore...')
-
-      // ✅ GET PHONE NUMBER FROM SECURESTORE
-      const storedPhone = await SecureStore.getItemAsync('userPhone')
-      console.log('📱 Retrieved phone from SecureStore:', storedPhone)
-
-      // ✅ GET USER DATA (AVATAR) FROM SECURESTORE
+      const storedPhone    = await SecureStore.getItemAsync('userPhone')
       const storedUserData = await SecureStore.getItemAsync('userData')
-      console.log('📦 Retrieved userData from SecureStore:', storedUserData)
-
-      let phone = storedPhone || ''
+      let phone  = storedPhone || ''
       let avatar = 'account-circle'
-
-      // ✅ PARSE USER DATA
       if (storedUserData) {
         try {
-          const parsedData = JSON.parse(storedUserData) as UserDataType
-          console.log('✅ Parsed userData:', parsedData)
-          avatar = parsedData.avatar || 'account-circle'
-        } catch (parseError) {
-          console.error('❌ Error parsing userData:', parseError)
-        }
+          const parsed = JSON.parse(storedUserData) as UserDataType
+          avatar = parsed.avatar || 'account-circle'
+        } catch (_) {}
       }
-
-      // ✅ SET COMBINED DATA
-      const finalData: UserDataType = {
-        phone: phone,
-        avatar: avatar,
-      }
-
-      console.log('✅ Final userData set:', finalData)
-      setUserData(finalData)
-    } catch (error) {
-      console.error('❌ Error loading user data:', error)
+      setUserData({ phone, avatar })
+    } catch {
       Alert.alert('Error', 'Failed to load profile data')
     } finally {
       setLoading(false)
+      runEntrance()
     }
   }
 
-  // ============ SAVE AVATAR ============
+  // ── Save avatar ──────────────────────────────────────────────────────────
   const handleSelectAvatar = async (iconName: string) => {
     try {
-      console.log('🎨 Changing avatar to:', iconName)
-
-      // ✅ CREATE NEW USER DATA OBJECT
-      const newUserData: UserDataType = {
-        phone: userData.phone, // Keep existing phone
-        avatar: iconName, // New avatar
-      }
-
-      console.log('💾 About to save to SecureStore:', newUserData)
-
-      // ✅ SAVE TO SECURESTORE
-      const jsonString = JSON.stringify(newUserData)
-      await SecureStore.setItemAsync('userData', jsonString)
-      console.log('✅ Successfully saved to SecureStore')
-
-      // ✅ VERIFY IT WAS SAVED
-      const verify = await SecureStore.getItemAsync('userData')
-      console.log('✅ Verification - Retrieved from SecureStore:', verify)
-
-      // ✅ UPDATE STATE
-      setUserData(newUserData)
-      console.log('✅ State updated with new avatar')
-
-      // Close modal
+      const newData: UserDataType = { phone: userData.phone, avatar: iconName }
+      await SecureStore.setItemAsync('userData', JSON.stringify(newData))
+      setUserData(newData)
       setModalVisible(false)
-
-      // Show success alert
       Alert.alert('✅ Success', 'Avatar updated successfully!')
-    } catch (error) {
-      console.error('❌ Error saving avatar:', error)
+    } catch {
       Alert.alert('❌ Error', 'Failed to update avatar. Please try again.')
     }
   }
 
-  // ============ LOGOUT ============
+  // ── Logout ───────────────────────────────────────────────────────────────
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', onPress: () => {} },
+      { text: 'Cancel' },
       {
-        text: 'Logout',
+        text: 'Logout', style: 'destructive',
         onPress: async () => {
           try {
-            console.log('🔄 Clearing SecureStore...')
-
-            // ✅ CLEAR ALL DATA FROM SECURESTORE
             await Promise.all([
               SecureStore.deleteItemAsync('userData'),
               SecureStore.deleteItemAsync('userPhone'),
               SecureStore.deleteItemAsync('authToken'),
               SecureStore.deleteItemAsync('isVerified'),
             ])
-
-            console.log('✅ Data cleared from SecureStore')
-
-            // Navigate to login
             router.replace('/login')
-          } catch (error) {
-            console.error('❌ Error logging out:', error)
+          } catch {
             Alert.alert('❌ Error', 'Failed to logout')
           }
         },
-        style: 'destructive',
       },
     ])
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* ============ HEADER ============ */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <MaterialCommunityIcons name="chevron-left" size={28} color={COLORS.text} />
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+
+      {/* ── HEADER ── */}
+      <Animated.View style={[styles.header, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <MaterialCommunityIcons name="chevron-left" size={26} color={C.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
-        <View style={{ width: 28 }} />
-      </View>
+        <View style={{ width: 40 }} />
+      </Animated.View>
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.purple} />
-            <Text style={styles.loadingText}>Loading profile...</Text>
-          </View>
-        ) : (
-          <>
-            {/* ============ AVATAR SECTION ============ */}
-            <View style={styles.avatarSection}>
-              <TouchableOpacity
-                style={styles.avatarContainer}
-                onPress={() => {
-                  console.log('📸 Opening avatar modal')
-                  setModalVisible(true)
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={userData.avatar as any}
-                  size={100}
-                  color={COLORS.purple}
-                />
-                <View style={styles.changeAvatarBadge}>
-                  <MaterialCommunityIcons
-                    name="pencil"
-                    size={16}
-                    color={COLORS.text}
-                  />
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.avatarLabel}>Tap to change avatar</Text>
+      {/* ── BODY ── */}
+      <LinearGradient colors={[C.bg, C.bgGradStart, C.bgGradMid, C.bgGradStart, C.bg]} style={{ flex: 1 }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+        >
+          {loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color={C.pink} />
+              <Text style={styles.loadingText}>Loading profile…</Text>
             </View>
+          ) : (
+            <>
+              {/* ── AVATAR ── */}
+              <Animated.View style={[styles.avatarSection, { opacity: avatarFade, transform: [{ scale: avatarScale }] }]}>
+                <Animated.View style={{ transform: [{ scale: ringPulse }] }}>
+                  <TouchableOpacity
+                    style={styles.avatarRing}
+                    onPress={() => setModalVisible(true)}
+                    activeOpacity={0.85}
+                  >
+                    <LinearGradient
+                      colors={[C.pinkLight, C.pink, C.pinkDeep]}
+                      style={styles.avatarGradient}
+                    >
+                      <MaterialCommunityIcons
+                        name={userData.avatar as any}
+                        size={64}
+                        color="#fff"
+                      />
+                    </LinearGradient>
 
-            {/* ============ PHONE NUMBER SECTION ============ */}
-            <View style={styles.infoCard}>
-              <View style={styles.phoneSection}>
-                <View style={styles.phoneIconContainer}>
-                  <MaterialCommunityIcons
-                    name="phone"
-                    size={24}
-                    color={COLORS.purple}
-                  />
+                    {/* Edit badge */}
+                    <View style={styles.editBadge}>
+                      <LinearGradient colors={[C.pinkLight, C.pinkDeep]} style={styles.editBadgeInner}>
+                        <MaterialCommunityIcons name="pencil" size={13} color="#fff" />
+                      </LinearGradient>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+                <Text style={styles.avatarLabel}>Tap to change avatar</Text>
+              </Animated.View>
+
+              {/* ── INFO CARD ── */}
+              <Animated.View style={{ opacity: cardFade, transform: [{ translateY: cardSlide }] }}>
+
+                {/* Phone number */}
+                <View style={styles.card}>
+                  <View style={styles.cardRow}>
+                    <View style={styles.cardIconWrap}>
+                      <MaterialCommunityIcons name="phone" size={22} color={C.pink} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cardLabel}>Phone Number</Text>
+                      <Text style={styles.cardValue}>
+                        {userData.phone ? `+91 ${userData.phone}` : 'Not registered'}
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={C.textMuted} />
+                  </View>
                 </View>
-                <View style={styles.phoneInfo}>
-                  <Text style={styles.phoneLabel}>Phone Number</Text>
-                  {userData.phone ? (
-                    <Text style={styles.phoneNumber}>+91 {userData.phone}</Text>
-                  ) : (
-                    <Text style={[styles.phoneNumber, { color: COLORS.textSecondary }]}>
-                      Not registered
-                    </Text>
-                  )}
+
+                {/* Secure storage info */}
+                <View style={styles.secureCard}>
+                  <View style={styles.secureHeader}>
+                    <MaterialCommunityIcons name="shield-lock" size={18} color={C.pink} />
+                    <Text style={styles.secureTitle}>Secure Storage</Text>
+                  </View>
+                  <View style={styles.secureRow}>
+                    <Text style={styles.secureKey}>Phone</Text>
+                    <Text style={styles.secureVal}>{userData.phone || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.secureDivider} />
+                  <View style={styles.secureRow}>
+                    <Text style={styles.secureKey}>Avatar</Text>
+                    <Text style={styles.secureVal}>{userData.avatar}</Text>
+                  </View>
+                  <Text style={styles.secureNote}>🔒 Data is encrypted and stored securely on device</Text>
                 </View>
-              </View>
-            </View>
 
-            {/* ============ DEBUG INFO ============ */}
-            <View style={styles.debugCard}>
-              <Text style={styles.debugTitle}>🔐 SecureStore Info</Text>
-              <Text style={styles.debugText}>Phone: {userData.phone || 'N/A'}</Text>
-              <Text style={styles.debugText}>Avatar: {userData.avatar}</Text>
-              <Text style={styles.debugSubText}>
-                Data is encrypted and stored securely
-              </Text>
-            </View>
+                {/* Logout */}
+                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
+                  <View style={styles.logoutIcon}>
+                    <MaterialCommunityIcons name="logout" size={18} color={C.red} />
+                  </View>
+                  <Text style={styles.logoutText}>Logout</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={18} color={C.red} style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
 
-            {/* ============ LOGOUT BUTTON ============ */}
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
-              <MaterialCommunityIcons
-                name="logout"
-                size={20}
-                color={COLORS.text}
-              />
-              <Text style={styles.logoutButtonText}>Logout</Text>
-            </TouchableOpacity>
+              </Animated.View>
+              <View style={{ height: 32 }} />
+            </>
+          )}
+        </ScrollView>
+      </LinearGradient>
 
-            <View style={{ height: 20 }} />
-          </>
-        )}
-      </ScrollView>
-
-      {/* ============ AVATAR SELECTION MODAL ============ */}
+      {/* ── AVATAR MODAL ── */}
       <Modal
         visible={modalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => {
-          console.log('📸 Closing avatar modal')
-          setModalVisible(false)
-        }}
+        onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={styles.modalSheet}>
+            {/* Sheet handle */}
+            <View style={styles.sheetHandle} />
+
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Choose Avatar</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  console.log('❌ Closing modal')
-                  setModalVisible(false)
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="close"
-                  size={24}
-                  color={COLORS.text}
-                />
+              <TouchableOpacity style={styles.modalClose} onPress={() => setModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={20} color={C.textSub} />
               </TouchableOpacity>
             </View>
 
@@ -303,40 +298,31 @@ const Profile = () => {
               data={AVATAR_OPTIONS}
               numColumns={4}
               keyExtractor={(item) => item.id.toString()}
-              scrollEnabled={true}
+              scrollEnabled
               contentContainerStyle={styles.avatarGrid}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.avatarOption,
-                    userData.avatar === item.icon && styles.avatarOptionActive,
-                  ]}
-                  onPress={() => {
-                    console.log('✅ Selected avatar:', item.icon)
-                    handleSelectAvatar(item.icon)
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons
-                    name={item.icon as any}
-                    size={40}
-                    color={
-                      userData.avatar === item.icon
-                        ? COLORS.purple
-                        : COLORS.textSecondary
-                    }
-                  />
-                  {userData.avatar === item.icon && (
-                    <View style={styles.checkmark}>
-                      <MaterialCommunityIcons
-                        name="check"
-                        size={16}
-                        color={COLORS.text}
-                      />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const active = userData.avatar === item.icon
+                return (
+                  <TouchableOpacity
+                    style={[styles.avatarOption, active && styles.avatarOptionActive]}
+                    onPress={() => handleSelectAvatar(item.icon)}
+                    activeOpacity={0.75}
+                  >
+                    {active ? (
+                      <LinearGradient colors={[C.pinkLight, C.pink]} style={styles.avatarOptionGrad}>
+                        <MaterialCommunityIcons name={item.icon as any} size={34} color="#fff" />
+                      </LinearGradient>
+                    ) : (
+                      <MaterialCommunityIcons name={item.icon as any} size={34} color={C.textMuted} />
+                    )}
+                    {active && (
+                      <View style={styles.checkmark}>
+                        <MaterialCommunityIcons name="check" size={11} color="#fff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                )
+              }}
             />
           </View>
         </View>
@@ -347,236 +333,179 @@ const Profile = () => {
 
 export default Profile
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.dark,
-  },
+  safeArea: { flex: 1, backgroundColor: C.bg },
 
+  // ── Header ──
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: COLORS.card,
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: C.border,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    marginTop:42,
   },
-
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.text,
+  backBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: C.pinkGhost,
+    justifyContent: 'center', alignItems: 'center',
   },
+  headerTitle: { fontSize: 17, fontWeight: '800', color: C.pink },
 
-  container: {
-    flex: 1,
-    padding: 16,
-  },
+  // ── Scroll ──
+  scroll: { paddingHorizontal: 20, paddingTop: 32, paddingBottom: 20 },
 
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 100,
-  },
+  // ── Loading ──
+  loadingBox: { paddingVertical: 120, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { fontSize: 13, color: C.textSub, marginTop: 12, fontWeight: '500' },
 
-  loadingText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginTop: 12,
-  },
-
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 40,
-    paddingVertical: 20,
-  },
-
-  avatarContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: `${COLORS.purple}20`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: COLORS.purple,
+  // ── Avatar ──
+  avatarSection: { alignItems: 'center', marginBottom: 36 },
+  avatarRing: {
+    width: 130, height: 130, borderRadius: 65,
+    borderWidth: 3, borderColor: C.pinkBorder,
+    padding: 4,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 8,
     position: 'relative',
   },
-
-  changeAvatarBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: COLORS.purple,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.dark,
+  avatarGradient: {
+    flex: 1, borderRadius: 60,
+    justifyContent: 'center', alignItems: 'center',
   },
-
-  avatarLabel: {
-    fontSize: 13,
-    color: COLORS.text,
-    fontWeight: '600',
-  },
-
-  infoCard: {
-    backgroundColor: COLORS.card,
+  editBadge: {
+    position: 'absolute', bottom: 4, right: 4,
+    borderWidth: 2, borderColor: C.bg,
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    shadowColor: C.pink,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
-
-  phoneSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+  editBadgeInner: {
+    width: 30, height: 30, borderRadius: 15,
+    justifyContent: 'center', alignItems: 'center',
   },
+  avatarLabel: { fontSize: 13, color: C.textSub, fontWeight: '600', marginTop: 12 },
 
-  phoneIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: `${COLORS.purple}20`,
-    justifyContent: 'center',
-    alignItems: 'center',
+  // ── Cards ──
+  card: {
+    backgroundColor: C.surface,
+    borderRadius: 20, padding: 16, marginBottom: 14,
+    borderWidth: 1, borderColor: C.border,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
   },
-
-  phoneInfo: {
-    flex: 1,
-    justifyContent: 'center',
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  cardIconWrap: {
+    width: 46, height: 46, borderRadius: 13,
+    backgroundColor: C.pinkGhost,
+    justifyContent: 'center', alignItems: 'center',
   },
+  cardLabel: { fontSize: 11, color: C.textMuted, fontWeight: '600', marginBottom: 4 },
+  cardValue: { fontSize: 15, fontWeight: '700', color: C.text },
 
-  phoneLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    marginBottom: 4,
+  // ── Secure card ──
+  secureCard: {
+    backgroundColor: C.surface,
+    borderRadius: 20, padding: 16, marginBottom: 20,
+    borderWidth: 1.5, borderColor: C.pinkBorder,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07, shadowRadius: 12, elevation: 3,
   },
+  secureHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  secureTitle: { fontSize: 13, fontWeight: '800', color: C.pink },
+  secureRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  secureKey: { fontSize: 12, color: C.textSub, fontWeight: '600' },
+  secureVal: { fontSize: 12, color: C.text, fontWeight: '700' },
+  secureDivider: { height: 1, backgroundColor: C.border, marginVertical: 4 },
+  secureNote: { fontSize: 11, color: C.textMuted, marginTop: 12, lineHeight: 17 },
 
-  phoneNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
+  // ── Logout ──
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: C.redGhost,
+    borderRadius: 20, padding: 16,
+    borderWidth: 1, borderColor: '#FECACA',
   },
-
-  debugCard: {
-    backgroundColor: `${COLORS.purple}10`,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  logoutIcon: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center', alignItems: 'center',
   },
+  logoutText: { fontSize: 14, fontWeight: '700', color: C.red },
 
-  debugTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.purple,
-    marginBottom: 8,
-  },
-
-  debugText: {
-    fontSize: 11,
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-
-  debugSubText: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-  },
-
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.red,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-
-  logoutButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-
+  // ── Modal ──
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'flex-end',
   },
-
-  modalContent: {
-    backgroundColor: COLORS.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    maxHeight: '85%',
+  modalSheet: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: 20, paddingBottom: 32,
+    maxHeight: '80%',
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12, shadowRadius: 20, elevation: 12,
   },
-
+  sheetHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: C.pinkBorder,
+    alignSelf: 'center', marginTop: 12, marginBottom: 4,
+  },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+    marginBottom: 8,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: C.pink },
+  modalClose: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: C.pinkGhost,
+    justifyContent: 'center', alignItems: 'center',
   },
 
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-
-  avatarGrid: {
-    paddingBottom: 20,
-  },
-
+  avatarGrid: { paddingBottom: 16 },
   avatarOption: {
-    flex: 1,
-    aspectRatio: 1,
-    backgroundColor: COLORS.dark,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    margin: 8,
-    position: 'relative',
+    flex: 1, aspectRatio: 1,
+    backgroundColor: C.pinkGhost,
+    borderRadius: 16, margin: 6,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1.5, borderColor: C.border,
+    position: 'relative', overflow: 'hidden',
   },
-
   avatarOptionActive: {
-    borderColor: COLORS.purple,
-    backgroundColor: `${COLORS.purple}20`,
+    borderColor: C.pink,
+    shadowColor: C.pink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
   },
-
+  avatarOptionGrad: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center', alignItems: 'center',
+  },
   checkmark: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.purple,
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute', top: 5, right: 5,
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: C.pink,
+    justifyContent: 'center', alignItems: 'center',
   },
 })

@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Stack } from "expo-router";
 import { View, StyleSheet } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView  } from "react-native-gesture-handler";
-
+import { Gesture, GestureHandlerRootView  } from "react-native-gesture-handler";
+import { StatusBar } from 'expo-status-bar';
 import useShakeAudio from "@/hooks/useShakeAudio";
 import useTapSOS from "@/hooks/useTapSOS";
 import { startSharing } from "../hooks/useLocationShare";
-import React from "react";
 
 export default function RootLayout() {
 
@@ -23,14 +22,13 @@ export default function RootLayout() {
     .onEnd(() => {
       handleTap();
     });
-
+    
   return (
-   <GestureHandlerRootView style={{ flex: 1 }}>
-      <GestureDetector gesture={tapGesture}>
-        <View style={{ flex: 1 }}>
-          <Stack />
-        </View>
-      </GestureDetector>
+    <GestureHandlerRootView>
+      <StatusBar style="light" hidden={false} />
+      <View style={{ flex: 1 }}>
+        <Stack  screenOptions={{ headerShown: false }}/>
+      </View>
     </GestureHandlerRootView>
   );
 }

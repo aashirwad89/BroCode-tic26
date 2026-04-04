@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/array-type */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   StyleSheet,
   Text,
@@ -7,224 +7,225 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Image,
   Alert,
   Dimensions,
   Animated,
   DrawerLayoutAndroid,
+  StatusBar,
 } from 'react-native'
-import { MaterialCommunityIcons, Feather } from '@expo/vector-icons'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
-import { Link } from 'expo-router'
 import { useRouter } from 'expo-router'
+import { LinearGradient } from 'expo-linear-gradient'
 
-const { width, height } = Dimensions.get('window')
+const { width } = Dimensions.get('window')
 
-const COLORS = {
-  dark: '#0B1220',
-  card: '#121A2B',
-  purple: '#7C3AED',
-  purpleLight: '#A78BFA',
-  text: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  border: '#1E293B',
-  red: '#EF4444',
-  green: '#10B981',
-  blue: '#3B82F6',
-  yellow: '#F59E0B',
+// ─── Design tokens — Light theme with pink accents ────────────────────────────
+const C = {
+  bg:            '#F8FAFC',   // Clean white/light gray background
+  bgLight:       '#F1F5F9',
+  surface:       '#FFFFFF',   // Pure white cards
+  surfaceMuted:  '#F8FAFC',   // Very subtle light tint
+  pink:          '#EC4899',   // Primary pink accent (unchanged)
+  pinkLight:     '#F472B6',
+  pinkDeep:      '#DB2777',
+  pinkGhost:     '#FCE7F3',   // Pink for icons (unchanged)
+  pinkBorder:    '#FBCFE8',   // Pink borders (unchanged)
+  text:          '#0F172A',
+  textSub:       '#475569',
+  textMuted:     '#64748B',
+  red:           '#EF4444',
+  redGhost:      '#FEE2E2',
+  green:         '#10B981',
+  greenGhost:    '#D1FAE5',
+  blue:          '#3B82F6',
+  blueGhost:     '#DBEAFE',
+  yellow:        '#F59E0B',
+  yellowGhost:   '#FEF3C7',
+  border:        '#E2E8F0',   // Light gray border
+  shadow:        '#D63384',   // Pink shadow (unchanged)
 }
 
 const Home = () => {
-  const navigation = useNavigation()
-  const router = useRouter()
-  const [isActive, setIsActive] = useState(false)
-  const [userName, setUserName] = useState('User')
-  const drawerRef = React.useRef<DrawerLayoutAndroid>(null)
-  const scaleAnim = React.useRef(new Animated.Value(1)).current
+  const router      = useRouter()
+  const [isActive, setIsActive]   = useState(false)
+  const [userName, setUserName]   = useState('User')
+  const drawerRef   = useRef<DrawerLayoutAndroid>(null)
+
+  // ── Animations ──────────────────────────────────────────────────────────
+  const scaleAnim   = useRef(new Animated.Value(1)).current
+
+  // Card stagger entrance
+  const headerFade  = useRef(new Animated.Value(0)).current
+  const headerSlide = useRef(new Animated.Value(-20)).current
+  const card1Fade   = useRef(new Animated.Value(0)).current
+  const card1Slide  = useRef(new Animated.Value(24)).current
+  const card2Fade   = useRef(new Animated.Value(0)).current
+  const card2Slide  = useRef(new Animated.Value(24)).current
+  const card3Fade   = useRef(new Animated.Value(0)).current
+  const card3Slide  = useRef(new Animated.Value(24)).current
+
+  // Icon pulse
+  const iconPulse   = useRef(new Animated.Value(1)).current
 
   useEffect(() => {
-    // Fetch user name from storage
-    // AsyncStorage.getItem('userName').then(name => setUserName(name || 'User'))
-  }, [])
-
-  const handleActivate = () => {
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
+    // Stagger entrance
+    Animated.stagger(90, [
+      Animated.parallel([
+        Animated.timing(headerFade,  { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.spring(headerSlide, { toValue: 0, friction: 9, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(card1Fade,  { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.spring(card1Slide, { toValue: 0, friction: 9, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(card2Fade,  { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.spring(card2Slide, { toValue: 0, friction: 9, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(card3Fade,  { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.spring(card3Slide, { toValue: 0, friction: 9, useNativeDriver: true }),
+      ]),
     ]).start()
 
-    setIsActive(!isActive)
-    Alert.alert(
-      isActive ? '⛔ Deactivated' : '🛡️ Activated',
-      isActive
-        ? 'Safety mode is now OFF'
-        : 'Safety mode is now ON. Stay safe!'
-    )
-  }
+    // Pulse loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(iconPulse, { toValue: 1.08, duration: 1400, useNativeDriver: true }),
+        Animated.timing(iconPulse, { toValue: 1.00, duration: 1400, useNativeDriver: true }),
+      ])
+    ).start()
+  }, [])
 
+  // ── Feature data ────────────────────────────────────────────────────────
   interface NavigationItem {
-    id: number
-    label: string
-    icon: keyof typeof MaterialCommunityIcons.glyphMap
-    screen: string
+    id: number; label: string
+    icon: keyof typeof MaterialCommunityIcons.glyphMap; screen: string
   }
 
   const navigationItems: NavigationItem[] = [
-    { id: 1, label: 'Home', icon: 'home', screen: 'home' },
-    { id: 2, label: 'Recent Records', icon: 'book', screen: 'records' },
-    { id: 3, label: 'AI Assistant', icon: 'robot', screen: 'home' },
-    { id: 4, label: 'Safety Tips', icon: 'shield-check', screen: 'safety' },
-    { id: 5, label: 'Call Logs', icon: 'phone', screen: 'callLogs' },
-    { id: 6, label: 'Trusted Contacts', icon: 'heart', screen: 'contacts' },
+    { id: 1, label: 'Home',              icon: 'home',         screen: 'home' },
+    { id: 2, label: 'Recent Records',    icon: 'book',         screen: 'records' },
+    { id: 3, label: 'AI Assistant',      icon: 'robot',        screen: 'home' },
+    { id: 4, label: 'Safety Tips',       icon: 'shield-check', screen: 'safety' },
+    { id: 5, label: 'Call Logs',         icon: 'phone',        screen: 'callLogs' },
+    { id: 6, label: 'Trusted Contacts',  icon: 'heart',        screen: 'contacts' },
   ]
 
   const features: Array<{
-    id: number
-    title: string
+    id: number; title: string
     icon: keyof typeof MaterialCommunityIcons.glyphMap
-    color: string
-    count: string
-    screen: string
+    color: string; ghost: string; count: string; screen: string
   }> = [
-    {
-      id: 1,
-      title: 'Trusted Contacts',
-      icon: 'heart',
-      color: COLORS.red,
-      count: '3',
-      screen: 'contacts',
-    },
-    {
-      id: 2,
-      title: 'Call Logs',
-      icon: 'phone',
-      color: COLORS.blue,
-      count: '4',
-      screen: 'callLogs',
-    },
-    {
-      id: 3,
-      title: 'GPS Location',
-      icon: 'map-marker',
-      color: COLORS.green,
-      count: 'Active',
-      screen: 'location',
-    },
-    {
-      id: 4,
-      title: 'Shake Detection',
-      icon: 'alert-circle',
-      color: COLORS.yellow,
-      count: 'Ready',
-      screen: 'shakeDetection',
-    },
+    { id: 1, title: 'Trusted Contacts', icon: 'heart',        color: C.red,    ghost: C.redGhost,    count: '3',      screen: 'contacts'       },
+    { id: 2, title: 'Call Logs',        icon: 'phone',        color: C.blue,   ghost: C.blueGhost,   count: '4',      screen: 'callLogs'       },
+    { id: 3, title: 'GPS Location',     icon: 'map-marker',   color: C.green,  ghost: C.greenGhost,  count: 'Active', screen: 'location'       },
+    { id: 4, title: 'Shake Detection',  icon: 'alert-circle', color: C.yellow, ghost: C.yellowGhost, count: 'Ready',  screen: 'shakeDetection' },
   ]
 
   const quotes = [
-    "Your safety is your priority. We're here to protect you every step.",
-    'A woman is the full circle. Within her is the power to create, nurture, transform and heal.',
-    'Empowered women empower women. Stay strong, stay safe.',
-    'Your voice matters. Your safety matters. You matter.',
-    'Real strength is in knowing when to ask for help.',
+    { text: "Your safety is your priority. We're here to protect you every step.", emoji: '🛡️' },
+    { text: 'Empowered women empower women. Stay strong, stay safe.',               emoji: '💜' },
+    { text: 'Your voice matters. Your safety matters. You matter.',                 emoji: '✨' },
   ]
+  const [quoteIndex, setQuoteIndex]   = useState(0)
+  const quoteSlide = useRef(new Animated.Value(0)).current
+  const quoteFade  = useRef(new Animated.Value(1)).current
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Slide out to left + fade
+      Animated.parallel([
+        Animated.timing(quoteSlide, { toValue: -30, duration: 280, useNativeDriver: true }),
+        Animated.timing(quoteFade,  { toValue: 0,   duration: 280, useNativeDriver: true }),
+      ]).start(() => {
+        setQuoteIndex(i => (i + 1) % quotes.length)
+        quoteSlide.setValue(30)   // reset to right
+        // Slide in from right + fade in
+        Animated.parallel([
+          Animated.spring(quoteSlide, { toValue: 0, friction: 9, tension: 60, useNativeDriver: true }),
+          Animated.timing(quoteFade,  { toValue: 1, duration: 280, useNativeDriver: true }),
+        ]).start()
+      })
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // ── Activate handler ────────────────────────────────────────────────────
+  const handleActivate = () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 0.94, duration: 90, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 5,   useNativeDriver: true }),
+    ]).start()
+    setIsActive(v => !v)
+    Alert.alert(
+      isActive ? '⛔ Deactivated' : '🛡️ Activated',
+      isActive ? 'Safety mode is now OFF' : 'Safety mode is now ON. Stay safe!'
+    )
+  }
+
+  // ── Drawer ──────────────────────────────────────────────────────────────
   const renderDrawer = () => (
     <View style={styles.drawer}>
-      <View style={styles.drawerHeader}>
-        <View style={styles.drawerProfileCircle}>
-          <MaterialCommunityIcons name="account" size={32} color={COLORS.purple} />
+      {/* Drawer header */}
+      <LinearGradient colors={[C.pinkGhost, '#F9A8D4']} style={styles.drawerHeader}>
+        <View style={styles.drawerAvatarRing}>
+          <LinearGradient colors={[C.pinkLight, C.pink, C.pinkDeep]} style={styles.drawerAvatar}>
+            <MaterialCommunityIcons name="account" size={30} color="#fff" />
+          </LinearGradient>
         </View>
         <Text style={styles.drawerName}>Hello 👋</Text>
-        <Text style={styles.drawerSubtitle}>ShadowSafe - AI</Text>
-      </View>
+        <Text style={styles.drawerSubtitle}>ShadowSafe · AI</Text>
+      </LinearGradient>
 
-    
+      {/* Nav items */}
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        {navigationItems.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.drawerItem}
+            onPress={() => {
+              drawerRef.current?.closeDrawer()
+              if (item.screen === 'home')     router.push('/home')
+              else if (item.screen === 'contacts') router.push('/trusted')
+            }}
+          >
+            <View style={styles.drawerItemIcon}>
+              <MaterialCommunityIcons name={item.icon} size={20} color={C.pink} />
+            </View>
+            <Text style={styles.drawerItemText}>{item.label}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={C.textMuted} style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-      {navigationItems.map((item) => (
-        <TouchableOpacity
-          key={item.id}
-          style={styles.drawerItem}
-          onPress={() => {
-            drawerRef.current?.closeDrawer()
-            // ✅ Add routing
-            if (item.screen === 'home') {
-              router.push('/home')
-            } else if (item.screen === 'callLogs') {
-              router.push('/callLogs')
-            } else if (item.screen === 'contacts') {
-              router.push('/trusted')
-            }
-          }}
-        >
-          <MaterialCommunityIcons name={item.icon} size={22} color={COLORS.purple} />
-          <Text style={styles.drawerItemText}>{item.label}</Text>
-        </TouchableOpacity>
-      ))}
-
-  
-
+      {/* Footer */}
       <View style={styles.drawerFooter}>
-        <TouchableOpacity 
-          style={styles.footerItem}
-          onPress={() => {
-            drawerRef.current?.closeDrawer()
-            Alert.alert('Terms & Conditions', 'Read our terms and conditions here')
-          }}
-        >
-          <MaterialCommunityIcons name="file-document-outline" size={18} color={COLORS.textSecondary} />
-          <Text style={styles.footerItemText}>Terms & Conditions</Text>
-        </TouchableOpacity>
+        {[
+          { icon: 'file-document-outline' as const, label: 'Terms & Conditions', onPress: () => Alert.alert('Terms & Conditions', 'Read our terms here') },
+          { icon: 'lock-outline'          as const, label: 'Privacy Policy',      onPress: () => Alert.alert('Privacy Policy', 'Read our privacy policy here') },
+          { icon: 'information-outline'   as const, label: 'About Us',            onPress: () => Alert.alert('About Us', 'Learn more about ShadowSafe AI') },
+        ].map((f) => (
+          <TouchableOpacity key={f.label} style={styles.footerItem} onPress={() => { drawerRef.current?.closeDrawer(); f.onPress() }}>
+            <MaterialCommunityIcons name={f.icon} size={17} color={C.textSub} />
+            <Text style={styles.footerItemText}>{f.label}</Text>
+          </TouchableOpacity>
+        ))}
 
-        <TouchableOpacity 
-          style={styles.footerItem}
-          onPress={() => {
-            drawerRef.current?.closeDrawer()
-            Alert.alert('Privacy Policy', 'Read our privacy policy here')
-          }}
-        >
-          <MaterialCommunityIcons name="lock-outline" size={18} color={COLORS.textSecondary} />
-          <Text style={styles.footerItemText}>Privacy Policy</Text>
-        </TouchableOpacity>
+        <View style={styles.divider} />
 
-        <TouchableOpacity 
-          style={styles.footerItem}
-          onPress={() => {
-            drawerRef.current?.closeDrawer()
-            Alert.alert('About Us', 'Learn more about ShadowSafe AI')
-          }}
-        >
-          <MaterialCommunityIcons name="information-outline" size={18} color={COLORS.textSecondary} />
-          <Text style={styles.footerItemText}>About Us</Text>
-        </TouchableOpacity>
-
-        <View style={styles.drawerDivider} />
-
-        <TouchableOpacity 
-          style={styles.logoutItem}
-          onPress={() => {
-            Alert.alert('Logout', 'Are you sure you want to logout?', [
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={() =>
+            Alert.alert('Logout', 'Are you sure?', [
               { text: 'Cancel' },
-              {
-                text: 'Logout',
-                onPress: () => {
-                  drawerRef.current?.closeDrawer()
-                  router.replace('/login')
-                },
-                style: 'destructive',
-              },
+              { text: 'Logout', style: 'destructive', onPress: () => { drawerRef.current?.closeDrawer(); router.replace('/login') } },
             ])
-          }}
+          }
         >
-          <MaterialCommunityIcons name="logout" size={18} color={COLORS.red} />
-          <Text style={[styles.footerItemText, { color: COLORS.red }]}>Logout</Text>
+          <MaterialCommunityIcons name="logout" size={17} color={C.red} />
+          <Text style={[styles.footerItemText, { color: C.red, fontWeight: '700' }]}>Logout</Text>
         </TouchableOpacity>
 
         <Text style={styles.versionText}>v1.0.0</Text>
@@ -232,168 +233,155 @@ const Home = () => {
     </View>
   )
 
-  // ============ UPDATE FEATURE BOX CLICK ============
+  // ── Main render ──────────────────────────────────────────────────────────
   return (
-    <DrawerLayoutAndroid
-      ref={drawerRef}
-      drawerWidth={280}
-      drawerPosition="left"
-      renderNavigationView={renderDrawer}
-    >
+    <DrawerLayoutAndroid ref={drawerRef} drawerWidth={285} drawerPosition="left" renderNavigationView={renderDrawer}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
       <SafeAreaView style={styles.safeArea}>
-        {/* ============ HEADER ============ */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => drawerRef.current?.openDrawer()}
-            style={styles.menuButton}
-          >
-            <MaterialCommunityIcons name="menu" size={24} color={COLORS.text} />
+
+        {/* ── HEADER ── */}
+        <Animated.View style={[styles.header, { opacity: headerFade, transform: [{ translateY: headerSlide }] }]}>
+          <TouchableOpacity onPress={() => drawerRef.current?.openDrawer()} style={styles.headerBtn}>
+            <MaterialCommunityIcons name="menu" size={22} color={C.text} />
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
             <Text style={styles.appName}>ShadowSafe</Text>
-            <Text style={styles.appSubtitle}>AI</Text>
+            <Text style={styles.appTag}>AI</Text>
           </View>
 
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconButton}>
-              <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.text} />
-              <View style={styles.notificationBadge}>
-                <Text style={styles.badgeText}>2</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.iconButton}
-              onPress={() => router.push('/profile')}
-            >
-              <View style={styles.profileCircle}>
-                <MaterialCommunityIcons name="account-circle" size={28} color={COLORS.purple} />
-              </View>
+            <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/profile')}>
+              <LinearGradient colors={[C.pinkLight, C.pink]} style={styles.profileGradient}>
+                <MaterialCommunityIcons name="account" size={20} color="#fff" />
+              </LinearGradient>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
 
+        {/* ── SCROLL BODY ── */}
         <ScrollView
-          style={styles.scrollView}
+          style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scroll}
         >
-          {/* ============ GREETING SECTION ============ */}
-          <View style={styles.greetingCard}>
-            <View style={styles.greetingContent}>
-              <Text style={styles.greetingTitle}>👋 Welcome back, {userName}!</Text>
-              <Text style={styles.greetingSubtitle}>
-                Activate your safety mode to get instant alerts and emergency protection
-              </Text>
-            </View>
 
-            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-              <TouchableOpacity
-                style={[
-                  styles.activateButton,
-                  { backgroundColor: isActive ? COLORS.green : COLORS.red },
-                ]}
-                onPress={handleActivate}
-              >
-                <MaterialCommunityIcons
-                  name={isActive ? 'shield-check' : 'shield-alert'}
-                  size={24}
-                  color={COLORS.text}
-                />
-                <Text style={styles.activateButtonText}>
-                  {isActive ? 'Safety Active' : 'Tap to Activate'}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
+          {/* ── GREETING CARD ── */}
+          <Animated.View style={{ opacity: card1Fade, transform: [{ translateY: card1Slide }] }}>
+            <View style={styles.greetingCard}>
+              <View style={styles.greetingTop}>
+                <Animated.View style={{ transform: [{ scale: iconPulse }] }}>
+                  <LinearGradient colors={[C.pinkLight, C.pink, C.pinkDeep]} style={styles.shieldIcon}>
+                    <MaterialCommunityIcons
+                      name={isActive ? 'shield-check' : 'shield-alert'}
+                      size={28} color="#fff"
+                    />
+                  </LinearGradient>
+                </Animated.View>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={styles.greetTitle}>👋 Welcome back, {userName}!</Text>
+                  <Text style={styles.greetSub}>
+                    Activate safety mode for instant alerts and emergency protection.
+                  </Text>
+                </View>
+              </View>
 
-          {/* ============ FEATURE BOXES ============ */}
-          <Text style={styles.sectionTitle}>Quick Access</Text>
-          <View style={styles.featureGrid}>
-            {features.map((feature) => (
-              <TouchableOpacity
-                key={feature.id}
-                style={styles.featureBox}
-                onPress={() => {
-                  // ✅ Add routing based on feature type
-                  if (feature.screen === 'contacts') {
-                    router.push('/trusted')
-                  } else if (feature.screen === 'callLogs') {
-                    router.push('/callLogs')
-                  } else if (feature.screen === 'location') {
-                    router.push('/location')
-                  } else if (feature.screen === 'shakeDetection') {
-                    router.push('/shake')
-                  }
-                }}
-              >
-                <View
-                  style={[
-                    styles.featureIconContainer,
-                    { backgroundColor: `${feature.color}20` },
-                  ]}
+              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                <TouchableOpacity
+                  style={[styles.activateBtn, { backgroundColor: isActive ? C.green : C.pink }]}
+                  onPress={handleActivate}
+                  activeOpacity={0.85}
                 >
                   <MaterialCommunityIcons
-                    name={feature.icon}
-                    size={28}
-                    color={feature.color}
+                    name={isActive ? 'shield-check' : 'shield-alert'}
+                    size={20} color="#fff"
                   />
-                </View>
-                <Text style={styles.featureTitle}>{feature.title}</Text>
-                <Text style={styles.featureCount}>{feature.count}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Text style={styles.activateBtnText}>
+                    {isActive ? 'Safety Active' : 'Tap to Activate'}
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+          </Animated.View>
 
-          {/* ============ STATISTICS CARD ============ */}
-          <View style={styles.statsCard}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>24/7</Text>
-              <Text style={styles.statLabel}>Protection</Text>
+          {/* ── QUICK ACCESS ── */}
+          <Animated.View style={{ opacity: card2Fade, transform: [{ translateY: card2Slide }] }}>
+            <Text style={styles.sectionTitle}>Quick Access</Text>
+            <View style={styles.featureGrid}>
+              {features.map((f) => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={styles.featureBox}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (f.screen === 'contacts')       router.push('/trusted')
+                    else if (f.screen === 'location')       router.push('/location')
+                    else if (f.screen === 'shakeDetection') router.push('/shake')
+                  }}
+                >
+                  <View style={[styles.featureIconWrap, { backgroundColor: f.ghost }]}>
+                    <MaterialCommunityIcons name={f.icon} size={26} color={f.color} />
+                  </View>
+                  <Text style={styles.featureTitle}>{f.title}</Text>
+                  <Text style={[styles.featureCount, { color: f.color }]}>{f.count}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>3</Text>
-              <Text style={styles.statLabel}>Trusted Contacts</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>100%</Text>
-              <Text style={styles.statLabel}>Private</Text>
-            </View>
-          </View>
+          </Animated.View>
 
-          {/* ============ WOMEN SAFETY QUOTE ============ */}
-          <View style={styles.quoteSection}>
-            <Text style={styles.quoteTitle}>💪 Stay Empowered</Text>
+          {/* ── STATS ── */}
+          <Animated.View style={{ opacity: card2Fade, transform: [{ translateY: card2Slide }] }}>
+            <View style={styles.statsCard}>
+              {[
+                { number: '24/7', label: 'Protection' },
+                { number: '3',    label: 'Trusted Contacts' },
+                { number: '100%', label: 'Private' },
+              ].map((s, i) => (
+                <React.Fragment key={s.label}>
+                  {i > 0 && <View style={styles.statDivider} />}
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>{s.number}</Text>
+                    <Text style={styles.statLabel}>{s.label}</Text>
+                  </View>
+                </React.Fragment>
+              ))}
+            </View>
+          </Animated.View>
+
+          {/* ── QUOTE ── */}
+          <Animated.View style={{ opacity: card3Fade, transform: [{ translateY: card3Slide }] }}>
+            <Text style={styles.sectionTitle}>💪 Stay Empowered</Text>
             <View style={styles.quoteCard}>
-              <MaterialCommunityIcons name="format-quote-open" size={28} color={COLORS.purple} />
-              <Text style={styles.quoteText}>
-                {quotes[Math.floor(Math.random() * quotes.length)]}
-              </Text>
-              <MaterialCommunityIcons
-                name="format-quote-close"
-                size={28}
-                color={COLORS.purple}
-                style={{ alignSelf: 'flex-end' }}
-              />
+              <MaterialCommunityIcons name="format-quote-open" size={24} color={C.pink} />
+              <Animated.View style={{ opacity: quoteFade, transform: [{ translateX: quoteSlide }] }}>
+                <Text style={styles.quoteEmoji}>{quotes[quoteIndex].emoji}</Text>
+                <Text style={styles.quoteText}>{quotes[quoteIndex].text}</Text>
+              </Animated.View>
+              <MaterialCommunityIcons name="format-quote-close" size={24} color={C.pink} style={{ alignSelf: 'flex-end' }} />
+              {/* Dot indicators */}
+              <View style={styles.dotRow}>
+                {quotes.map((_, i) => (
+                  <View key={i} style={[styles.dot, i === quoteIndex && styles.dotActive]} />
+                ))}
+              </View>
             </View>
-          </View>
+          </Animated.View>
 
-          {/* ============ HELP SECTION ============ */}
-          <View style={styles.helpCard}>
-            <MaterialCommunityIcons name="help-circle" size={24} color={COLORS.blue} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.helpTitle}>Need Help?</Text>
-              <Text style={styles.helpText}>
-                Access our safety guides and emergency resources
-              </Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.border} />
-          </View>
+          {/* ── HELP ── */}
+          <Animated.View style={{ opacity: card3Fade, transform: [{ translateY: card3Slide }] }}>
+            <TouchableOpacity style={styles.helpCard} activeOpacity={0.85}>
+              <View style={styles.helpIconWrap}>
+                <MaterialCommunityIcons name="help-circle" size={22} color={C.blue} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.helpTitle}>Need Help?</Text>
+                <Text style={styles.helpSub}>Access safety guides and emergency resources</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={C.textMuted} />
+            </TouchableOpacity>
+          </Animated.View>
 
-          <View style={{ height: 20 }} />
+          <View style={{ height: 24 }} />
         </ScrollView>
       </SafeAreaView>
     </DrawerLayoutAndroid>
@@ -402,377 +390,197 @@ const Home = () => {
 
 export default Home
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.dark,
-  },
+  safeArea: { flex: 1, backgroundColor: C.bg },
 
-  // ============ HEADER ============
+  // ── Header ──
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: COLORS.card,
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-
-  menuButton: {
-    padding: 8,
-  },
-
-  headerCenter: {
-    alignItems: 'center',
-    flex: 1,
-  },
-
-  appName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-
-  appSubtitle: {
-    fontSize: 12,
-    color: COLORS.purple,
-    fontWeight: '700',
-  },
-
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-
-  iconButton: {
-    padding: 8,
-    position: 'relative',
-  },
-
-  notificationBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: COLORS.red,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  badgeText: {
-    color: COLORS.text,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-
-  profileCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: `${COLORS.purple}20`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // ============ DRAWER ============
-  drawer: {
-    flex: 1,
-    backgroundColor: COLORS.card,
-    paddingTop: 20,
-  },
-
-  drawerHeader: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-
-  drawerProfileCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: `${COLORS.purple}20`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-
-  drawerName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-
-  drawerSubtitle: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-
-  drawerDivider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: 12,
-  },
-
-  drawerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-
-  drawerItemText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-
-  // ============ SCROLL VIEW ============
-  scrollView: {
-    flex: 1,
-  },
-
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-
-  // ============ GREETING CARD ============
-  greetingCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-
-  greetingContent: {
-    marginBottom: 16,
-  },
-
-  greetingTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-
-  greetingSubtitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-
-  activateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 10,
-    shadowColor: COLORS.purple,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    borderBottomColor: C.border,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 4,
+    marginTop:43,
+  },
+  headerBtn: { padding: 8, position: 'relative' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  appName: { fontSize: 18, fontWeight: '800', color: C.pink },
+  appTag:  { fontSize: 10, color: C.textMuted, fontWeight: '700', letterSpacing: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+
+  notifBadge: {
+    position: 'absolute', top: 4, right: 4,
+    backgroundColor: C.red, width: 16, height: 16,
+    borderRadius: 8, justifyContent: 'center', alignItems: 'center',
+  },
+  notifText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+
+  profileBtn: { marginLeft: 4 },
+  profileGradient: {
+    width: 34, height: 34, borderRadius: 17,
+    justifyContent: 'center', alignItems: 'center',
   },
 
-  activateButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
+  // ── Scroll ──
+  scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
 
-  // ============ SECTION TITLE ============
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-
-  // ============ FEATURE GRID ============
-  featureGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  // ── Greeting Card ──
+  greetingCard: {
+    backgroundColor: C.surface,
+    borderRadius: 24,
+    padding: 20,
     marginBottom: 20,
-  },
-
-  featureBox: {
-    width: '48%',
-    backgroundColor: COLORS.card,
-    borderRadius: 18,
-    padding: 16,
-    alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: C.border,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
   },
-
-  featureIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
+  greetingTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
+  shieldIcon: {
+    width: 56, height: 56, borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: C.pink, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 10, elevation: 6,
   },
+  greetTitle: { fontSize: 15, fontWeight: '800', color: C.text, marginBottom: 5 },
+  greetSub:   { fontSize: 12, color: C.textSub, lineHeight: 18 },
 
-  featureTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginBottom: 4,
+  activateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 14, borderRadius: 14, gap: 8,
+    shadowColor: C.pink, shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.38, shadowRadius: 10, elevation: 6,
   },
+  activateBtnText: { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
 
-  featureCount: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
+  // ── Section title ──
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: C.text, marginBottom: 12 },
+
+  // ── Feature grid ──
+  featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+  featureBox: {
+    width: (width - 44) / 2,
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    padding: 16, alignItems: 'center',
+    borderWidth: 1, borderColor: C.border,
+    shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07, shadowRadius: 10, elevation: 3,
   },
+  featureIconWrap: {
+    width: 52, height: 52, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 10,
+  },
+  featureTitle: { fontSize: 12, fontWeight: '700', color: C.text, textAlign: 'center', marginBottom: 4 },
+  featureCount: { fontSize: 11, fontWeight: '700' },
 
-  // ============ STATISTICS ============
+  // ── Stats ──
   statsCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    backgroundColor: C.surface,
+    borderRadius: 20, paddingVertical: 16, paddingHorizontal: 8,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1, borderColor: C.border,
+    shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07, shadowRadius: 10, elevation: 3,
   },
+  statItem:   { flex: 1, alignItems: 'center' },
+  statNumber: { fontSize: 18, fontWeight: '800', color: C.pink, marginBottom: 4 },
+  statLabel:  { fontSize: 11, color: C.textSub, fontWeight: '600', textAlign: 'center' },
+  statDivider:{ width: 1, backgroundColor: C.border, marginHorizontal: 4 },
 
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-
-  statNumber: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.purple,
-    marginBottom: 4,
-  },
-
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-
-  statDivider: {
-    width: 1,
-    backgroundColor: COLORS.border,
-    marginHorizontal: 8,
-  },
-
-  // ============ QUOTE SECTION ============
-  quoteSection: {
-    marginBottom: 20,
-  },
-
-  quoteTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-
+  // ── Quote ──
   quoteCard: {
-    backgroundColor: `${COLORS.purple}10`,
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 2,
-    borderColor: `${COLORS.purple}30`,
-    alignItems: 'center',
+    backgroundColor: C.surface,
+    borderRadius: 20, padding: 18, marginBottom: 16,
+    borderWidth: 1.5, borderColor: C.pinkBorder,
+    shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
   },
-
+  quoteEmoji: { fontSize: 22, textAlign: 'center', marginBottom: 6 },
   quoteText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginVertical: 12,
-    lineHeight: 20,
+    fontSize: 13, fontWeight: '600', color: C.text,
+    textAlign: 'center', marginBottom: 10, lineHeight: 21,
   },
+  dotRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 4 },
+  dot: {
+    width: 6, height: 6, borderRadius: 3,
+    backgroundColor: C.pinkBorder,
+  },
+  dotActive: { width: 18, backgroundColor: C.pink },
 
-  // ============ HELP CARD ============
+  // ── Help ──
   helpCard: {
-    flexDirection: 'row',
-    backgroundColor: `${COLORS.blue}15`,
-    borderRadius: 18,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: `${COLORS.blue}30`,
-    marginBottom: 20,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.surface,
+    borderRadius: 20, padding: 16, marginBottom: 4,
+    borderWidth: 1, borderColor: C.blueGhost,
+    shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07, shadowRadius: 10, elevation: 3,
   },
-
-  helpTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.text,
-    marginBottom: 4,
+  helpIconWrap: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: C.blueGhost,
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
+  helpTitle: { fontSize: 13, fontWeight: '800', color: C.text, marginBottom: 3 },
+  helpSub:   { fontSize: 11, color: C.textSub },
 
-  helpText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
+  // ── Drawer ──
+  drawer: { flex: 1, backgroundColor: C.surface },
+  drawerHeader: {
+    alignItems: 'center', paddingTop: 40, paddingBottom: 24,
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
+  drawerAvatarRing: {
+    padding: 3, borderRadius: 40,
+    borderWidth: 2, borderColor: C.pinkBorder, marginBottom: 12,
+    shadowColor: C.pink, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
+  },
+  drawerAvatar: {
+    width: 60, height: 60, borderRadius: 30,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  drawerName:     { fontSize: 17, fontWeight: '800', color: C.text },
+  drawerSubtitle: { fontSize: 12, color: C.textMuted, marginTop: 4, fontWeight: '600' },
 
-  // ============ DRAWER FOOTER ============
+  drawerItem: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 13, paddingHorizontal: 20, gap: 14,
+  },
+  drawerItemIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: C.pinkGhost,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  drawerItemText: { fontSize: 14, fontWeight: '600', color: C.text },
+
   drawerFooter: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    paddingBottom: 16,
-    paddingHorizontal: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    paddingHorizontal: 16, paddingBottom: 20, paddingTop: 8,
+    borderTopWidth: 1, borderTopColor: C.border,
   },
-
   footerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    gap: 12,
-    borderRadius: 12,
-    marginBottom: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 11, paddingHorizontal: 8, borderRadius: 10,
   },
-
-  footerItemText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
+  footerItemText: { fontSize: 13, fontWeight: '600', color: C.textSub },
+  divider:        { height: 1, backgroundColor: C.border, marginVertical: 8 },
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 11, paddingHorizontal: 8, borderRadius: 10,
+    backgroundColor: C.redGhost,
   },
-
-  logoutItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    gap: 12,
-    borderRadius: 12,
-    marginVertical: 8,
-  },
-
-  versionText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
-    opacity: 0.6,
-  },
+  versionText: { fontSize: 11, color: C.textMuted, textAlign: 'center', marginTop: 10, opacity: 0.7 },
 })
