@@ -139,7 +139,7 @@ const Home = () => {
   const navItems = [
     { id: 1, label: 'Home',             icon: 'home'         as const, onPress: () => { closeDrawer(); router.push('/home')    } },
     { id: 2, label: 'Recent Records',   icon: 'book'         as const, onPress: () => { closeDrawer(); router.push('/records') } },
-    { id: 3, label: 'AI Assistant',     icon: 'robot'        as const, onPress: () => { closeDrawer(); router.push('/home')    } },
+    { id: 3, label: 'AI Assistant',     icon: 'robot'        as const, onPress: () => { closeDrawer(); router.push('/chat')    } },
     { id: 4, label: 'Safety Tips',      icon: 'shield-check' as const, onPress: () => { closeDrawer(); router.push('/safety')  } },
     { id: 5, label: 'Trusted Contacts', icon: 'heart'        as const, onPress: () => { closeDrawer(); router.push('/trusted') } },
   ]
