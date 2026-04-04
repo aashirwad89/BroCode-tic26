@@ -23,6 +23,20 @@ import * as Haptics from 'expo-haptics';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_URL = 'http://10.252.189.103:8000/api';
 
+// ✅ Match Home ki light design + purple‑bubbles accent
+const C = {
+  bg:        '#F8FAFC',        // White/light background
+  surface:   '#FFFFFF',        // Card
+  pink:      '#EC4899',
+  pinkLight: '#F472B6',
+  pinkDeep:  '#DB2777',
+  purple:    '#A855F7',        // Light purple for bubbles
+  text:      '#111827',
+  textSub:   '#64748B',
+  border:    '#E2E8F0',
+  shadow:    '#D63384',
+};
+
 const Login = () => {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -30,22 +44,14 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // ─── Entrance animations ───────────────────────────────────────────────
   const fadeAnim   = useRef(new Animated.Value(0)).current;
   const slideAnim  = useRef(new Animated.Value(40)).current;
   const scaleAnim  = useRef(new Animated.Value(0.93)).current;
 
-  // Icon pulse (infinite subtle scale)
   const iconPulse  = useRef(new Animated.Value(1)).current;
-
-  // Button press scale
   const btnScale   = useRef(new Animated.Value(1)).current;
-
-  // OTP field slide-in
   const otpSlide   = useRef(new Animated.Value(20)).current;
   const otpFade    = useRef(new Animated.Value(0)).current;
-
-  // Error shake
   const shakeAnim  = useRef(new Animated.Value(0)).current;
 
   const cleanedPhone = useMemo(() => phone.replace(/\D/g, ''), [phone]);
@@ -54,7 +60,6 @@ const Login = () => {
   const isPhoneValid = cleanedPhone.length === 10 || cleanedPhone.length === 12;
   const isOtpValid   = cleanedOtp.length === 4;
 
-  // Entrance
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim,  { toValue: 1, duration: 550, useNativeDriver: true }),
@@ -62,7 +67,6 @@ const Login = () => {
       Animated.spring(scaleAnim, { toValue: 1, friction: 8, tension: 50, useNativeDriver: true }),
     ]).start();
 
-    // Icon pulse loop
     Animated.loop(
       Animated.sequence([
         Animated.timing(iconPulse, { toValue: 1.07, duration: 1200, useNativeDriver: true }),
@@ -71,7 +75,6 @@ const Login = () => {
     ).start();
   }, []);
 
-  // OTP field entrance when step changes
   useEffect(() => {
     if (step === 'otp') {
       otpSlide.setValue(20);
@@ -83,7 +86,6 @@ const Login = () => {
     }
   }, [step]);
 
-  // Shake on error
   const triggerShake = () => {
     shakeAnim.setValue(0);
     Animated.sequence([
@@ -95,11 +97,9 @@ const Login = () => {
     ]).start();
   };
 
-  // Button press feedback
   const onBtnPressIn  = () => Animated.spring(btnScale, { toValue: 0.96, useNativeDriver: true }).start();
   const onBtnPressOut = () => Animated.spring(btnScale, { toValue: 1.00, friction: 5, useNativeDriver: true }).start();
 
-  // ─── API calls ─────────────────────────────────────────────────────────
   const requestOtp = async () => {
     if (!isPhoneValid) {
       setError('Phone number 10 ya 12 digits ka hona chahiye');
@@ -117,6 +117,7 @@ const Login = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'OTP bhejne me problem aayi');
+
       setStep('otp');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (data?.otp) Alert.alert('OTP Sent', `Demo OTP: ${data.otp}`);
@@ -143,9 +144,11 @@ const Login = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'OTP verify nahi hua');
+
       if (data?.token)  await SecureStore.setItemAsync('token', data.token);
       if (data?.userId) await SecureStore.setItemAsync('userId', data.userId);
       await SecureStore.setItemAsync('phone', cleanedPhone);
+
       Alert.alert('Success', 'Login successful');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push('/home');
@@ -165,20 +168,25 @@ const Login = () => {
     Haptics.selectionAsync();
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FCE4EC" />
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
 
-      <LinearGradient
-        colors={['#FCE4EC', '#F8BBD0', '#FCE4EC']}
-        style={styles.background}
-      >
+      {/* ✅ White background + light purple bubbles layer (60% opacity) */}
+      <View style={styles.background}>
+        {/* Light purple bubbles */}
+        <View style={styles.bubbles}>
+          <View style={[styles.bubble, { backgroundColor: `${C.purple}66` }]} />
+          <View style={[styles.bubble, { backgroundColor: `${C.purple}66`, width: 40, height: 40 }]} />
+          <View style={[styles.bubble, { backgroundColor: `${C.purple}66`, width: 60, height: 60 }]} />
+          <View style={[styles.bubble, { backgroundColor: `${C.purple}66`, width: 50, height: 50 }]} />
+          <View style={[styles.bubble, { backgroundColor: `${C.purple}66`, width: 30, height: 30 }]} />
+        </View>
+
         <KeyboardAvoidingView
           style={styles.centerWrap}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          {/* Card entrance */}
           <Animated.View
             style={[
               styles.card,
@@ -192,19 +200,15 @@ const Login = () => {
               },
             ]}
           >
-            {/* ── Icon ── */}
-            <Animated.View
-              style={[styles.iconWrapper, { transform: [{ scale: iconPulse }] }]}
-            >
+            <Animated.View style={[styles.iconWrapper, { transform: [{ scale: iconPulse }] }]}>
               <LinearGradient
-                colors={['#F472B6', '#EC4899', '#DB2777']}
+                colors={[C.pinkLight, C.pink, C.pinkDeep]}
                 style={styles.iconBg}
               >
                 <Smartphone size={32} color="#fff" strokeWidth={1.8} />
               </LinearGradient>
             </Animated.View>
 
-            {/* ── Title ── */}
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>
               {step === 'phone'
@@ -212,15 +216,15 @@ const Login = () => {
                 : `OTP sent to +${cleanedPhone}`}
             </Text>
 
-            {/* ── Phone field ── */}
+            {/* Phone field */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Mobile Number</Text>
               <View style={[styles.inputRow, step === 'otp' && styles.inputRowDisabled]}>
-                <Phone size={18} color="#EC4899" strokeWidth={1.8} />
+                <Phone size={18} color={C.pink} strokeWidth={1.8} />
                 <TextInput
                   value={phone}
                   onChangeText={setPhone}
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="+91 12345 67890"
                   placeholderTextColor="#C4B5C0"
                   keyboardType="phone-pad"
                   maxLength={12}
@@ -230,7 +234,7 @@ const Login = () => {
               </View>
             </View>
 
-            {/* ── OTP field (animated in) ── */}
+            {/* OTP field */}
             {step === 'otp' && (
               <Animated.View
                 style={[
@@ -260,17 +264,17 @@ const Login = () => {
               </Animated.View>
             )}
 
-            {/* ── Error ── */}
+            {/* Error */}
             {!!error && (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
 
-            {/* ── Button (press scale) ── */}
+            {/* Button */}
             <Animated.View style={[styles.buttonWrap, { transform: [{ scale: btnScale }] }]}>
               <LinearGradient
-                colors={['#F472B6', '#EC4899', '#DB2777']}
+                colors={[C.pinkLight, C.pink, C.pinkDeep]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[
@@ -298,47 +302,72 @@ const Login = () => {
               </LinearGradient>
             </Animated.View>
 
-            {/* ── Footer ── */}
             <Text style={styles.footerText}>
               By continuing, you agree to our{' '}
               <Text style={styles.footerLink}>Terms & Privacy Policy</Text>
             </Text>
           </Animated.View>
         </KeyboardAvoidingView>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 };
 
+
 export default Login;
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FCE4EC',
-  },
-  background: {
-    flex: 1,
-  },
 
-  // Centers card vertically & horizontally — no ScrollView
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: C.bg },
+
+  // ✅ White background + purple bubbles on top
+  background: { flex: 1 },
+
+  // Purple bubbles overlay (60% opacity due to `purple66` color)
+  bubbles: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 999,
+    opacity: 0.6,
+  },
+  // Positions of bubbles
+  // Top‑left
+  'bubble-1': { width: 30, height: 30, left: 40, top: 80 },
+  // Bottom‑right
+  'bubble-2': { width: 60, height: 60, right: 30, bottom: 100 },
+  // Center‑top
+  'bubble-3': { width: 40, height: 40, left: 20, top: 140 },
+  // Center‑bottom
+  'bubble-4': { width: 50, height: 50, right: 40, bottom: 80 },
+  // Small one
+  'bubble-5': { width: 30, height: 30, left: 60, bottom: 120 },
+
+  // Centers card vertically & horizontally
   centerWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
+   buttonWrap: {
+    width: '100%',
+    marginTop: 8,
+  },
 
   /* ── Card ── */
   card: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.surface,
     borderRadius: 28,
     paddingHorizontal: 28,
     paddingTop: 36,
     paddingBottom: 32,
     alignItems: 'center',
-    shadowColor: '#D63384',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.14,
     shadowRadius: 28,
@@ -348,7 +377,7 @@ const styles = StyleSheet.create({
   /* ── Icon ── */
   iconWrapper: {
     marginBottom: 22,
-    shadowColor: '#EC4899',
+    shadowColor: C.pink,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.38,
     shadowRadius: 14,
@@ -366,13 +395,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#EC4899',
+    color: C.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: C.textSub,
     textAlign: 'center',
     lineHeight: 21,
     marginBottom: 28,
@@ -387,7 +416,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: C.text,
     marginBottom: 8,
   },
   otpLabelRow: {
@@ -398,14 +427,14 @@ const styles = StyleSheet.create({
   },
   changeText: {
     fontSize: 12,
-    color: '#EC4899',
+    color: C.pink,
     fontWeight: '600',
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#F3F4F6',
+    borderColor: C.border,
     borderRadius: 14,
     backgroundColor: '#FAFAFA',
     paddingHorizontal: 14,
@@ -418,14 +447,14 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#111827',
+    color: C.text,
     height: '100%',
   },
   otpInput: {
     fontSize: 22,
     fontWeight: '700',
     letterSpacing: 12,
-    color: '#EC4899',
+    color: C.pink,
     textAlign: 'center',
   },
 
@@ -446,18 +475,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-
-  /* ── Button ── */
-  buttonWrap: {
-    width: '100%',
-    marginTop: 8,
-  },
+/* ── Button (continued) ── */
   button: {
     width: '100%',
     height: 52,
     borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: '#EC4899',
+    shadowColor: C.pink,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.42,
     shadowRadius: 14,
@@ -474,7 +498,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.4,
@@ -484,12 +508,12 @@ const styles = StyleSheet.create({
   footerText: {
     marginTop: 20,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: C.textSub,
     textAlign: 'center',
     lineHeight: 18,
   },
   footerLink: {
-    color: '#EC4899',
+    color: C.pink,
     fontWeight: '600',
   },
 });

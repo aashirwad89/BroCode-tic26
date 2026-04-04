@@ -109,7 +109,6 @@ const Home = () => {
     { id: 2, label: 'Recent Records',    icon: 'book',         screen: 'records' },
     { id: 3, label: 'AI Assistant',      icon: 'robot',        screen: 'home' },
     { id: 4, label: 'Safety Tips',       icon: 'shield-check', screen: 'safety' },
-    { id: 5, label: 'Call Logs',         icon: 'phone',        screen: 'callLogs' },
     { id: 6, label: 'Trusted Contacts',  icon: 'heart',        screen: 'contacts' },
   ]
 
@@ -119,7 +118,6 @@ const Home = () => {
     color: string; ghost: string; count: string; screen: string
   }> = [
     { id: 1, title: 'Trusted Contacts', icon: 'heart',        color: C.red,    ghost: C.redGhost,    count: '3',      screen: 'contacts'       },
-    { id: 2, title: 'Call Logs',        icon: 'phone',        color: C.blue,   ghost: C.blueGhost,   count: '4',      screen: 'callLogs'       },
     { id: 3, title: 'GPS Location',     icon: 'map-marker',   color: C.green,  ghost: C.greenGhost,  count: 'Active', screen: 'location'       },
     { id: 4, title: 'Shake Detection',  icon: 'alert-circle', color: C.yellow, ghost: C.yellowGhost, count: 'Ready',  screen: 'shakeDetection' },
   ]
