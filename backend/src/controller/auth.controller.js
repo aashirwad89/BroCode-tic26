@@ -1,105 +1,167 @@
-// controllers/auth.controller.js
-import User from "../models/user.model.js";
-import Otp from "../models/otp.model.js";
-import genToken from "../config/token.config.js";
-import otpGenerator from "otp-generator";
+// controller/auth.controller.js
+import User from '../models/user.model.js';
+import { generateOtp } from '../utils/otp.js'; // OTP generation utility
+import { sendSMS } from '../utils/sms.js'; // SMS service
 
+// ============ SEND OTP ============
 export const sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
-    
-    if (!phone || phone.trim() === "") {
-      return res.status(400).json({ message: "Phone number is required" });
-    }
-    
-    if (!/^(\d{10}|\d{12})$/.test(phone)) {
-      return res.status(400).json({ message: "Phone must be 10 or 12 digits" });
-    }
 
-    await Otp.deleteMany({ phone });
-
-    const otp = otpGenerator.generate(4, {
-      digits: true,
-      lowerCaseAlphabets: false,
-      upperCaseAlphabets: false,
-      specialChars: false,
-    });
-    
-    const createOtp = await Otp.create({
-      phone,
-      otp,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    });
-
-    if (!createOtp) {
-      return res.status(500).json({ message: "Failed to store OTP" });
+    // ✅ VALIDATION
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required',
+      });
     }
 
-    console.log("✅ OTP stored in DB:", otp);
-    return res.status(200).json({
-      message: "OTP sent successfully",
-      otp: otp, // Remove in production!
-    });
+    // ✅ GENERATE OTP
+    const otp = generateOtp();
+    console.log(`🔐 Generated OTP for ${phone}: ${otp}`);
 
+    // ✅ SAVE OTP TO DATABASE (with expiry)
+    const expiryTime = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
+
+    let user = await User.findOne({ phone });
+
+    if (user) {
+      // Update existing user
+      user.otp = otp;
+      user.otpExpiry = expiryTime;
+      await user.save();
+    } else {
+      // Create new user
+      user = await User.create({
+        phone,
+        otp,
+        otpExpiry: expiryTime,
+      });
+    }
+
+    // ✅ SEND SMS
+    // await sendSMS(phone, `Your OTP is: ${otp}`);
+
+    console.log('✅ OTP sent successfully');
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully',
+      phone, // ✅ SEND BACK PHONE FOR FRONTEND
+      data: {
+        phone,
+        otpExpiry: expiryTime,
+      },
+    });
   } catch (error) {
-    console.error("❌ OTP generation failed:", error.message);
-    return res.status(500).json({
-      message: "Failed to generate OTP",
+    console.error('❌ Error in sendOtp:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error sending OTP',
       error: error.message,
     });
   }
 };
 
+// ============ VERIFY OTP ============
 export const verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
-    
-    if (!phone || !otp) {
-      return res.status(400).json({ message: "Phone and OTP required" });
-    }
-    
-    const record = await Otp.findOne({ phone, otp });
-    
-    if (!record) {
-      return res.status(404).json({ message: "Invalid OTP" });
-    }
-    
-    if (record.expiresAt < new Date()) {
-      return res.status(400).json({ message: "OTP expired" });
-    }
-    
-    let user = await User.findOne({ phone });
-    
-    if (!user) {
-      user = await User.create({ phone });
-    }
-    
-    const token = genToken(user._id, user.phone);
-    
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-    
-    return res.status(200).json({
-      message: "OTP verified successfully",
-      token: token,
-      userId: user._id.toString()
-    });
 
+    // ✅ VALIDATION
+    if (!phone || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number and OTP are required',
+      });
+    }
+
+    // ✅ FIND USER
+    const user = await User.findOne({ phone });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found. Please send OTP first.',
+      });
+    }
+
+    // ✅ CHECK OTP
+    if (user.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP',
+      });
+    }
+
+    // ✅ CHECK OTP EXPIRY
+    if (new Date() > user.otpExpiry) {
+      return res.status(400).json({
+        success: false,
+        message: 'OTP expired. Please request a new one.',
+      });
+    }
+
+    // ✅ GENERATE TOKEN (JWT or session)
+    const authToken = user._id.toString(); // Simple token, use JWT in production
+    console.log(`✅ Generated auth token for ${phone}`);
+
+    // ✅ CLEAR OTP AFTER VERIFICATION
+    user.otp = null;
+    user.otpExpiry = null;
+    user.isVerified = true;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    console.log('✅ OTP verified successfully');
+
+    // ✅ RETURN RESPONSE WITH PHONE NUMBER AND TOKEN
+    res.status(200).json({
+      success: true,
+      message: 'OTP verified successfully',
+      data: {
+        phone, // ✅ IMPORTANT: Return phone number
+        authToken, // ✅ IMPORTANT: Return token
+        user: {
+          id: user._id,
+          phone: user.phone,
+          isVerified: user.isVerified,
+        },
+      },
+    });
   } catch (error) {
-    console.error("Verification error:", error);
-    return res.status(500).json({ message: "Verification error", error: error.message });
+    console.error('❌ Error in verifyOtp:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying OTP',
+      error: error.message,
+    });
   }
 };
 
+// ============ LOGOUT ============
 export const logout = async (req, res) => {
   try {
-    res.clearCookie("token");
-    return res.status(200).json({ message: "User logged out successfully" });
+    const userId = req.userId; // From auth middleware
+
+    // ✅ UPDATE USER STATUS
+    await User.findByIdAndUpdate(userId, {
+      isActive: false,
+      lastLogoutAt: new Date(),
+    });
+
+    console.log('✅ User logged out successfully');
+
+    res.status(200).json({
+      success: true,
+      message: 'Logged out successfully',
+    });
   } catch (error) {
-    return res.status(400).json({ message: "Logout error", error: error.message });
+    console.error('❌ Error in logout:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error logging out',
+      error: error.message,
+    });
   }
 };

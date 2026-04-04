@@ -36,7 +36,7 @@ const COLORS = {
 
 const Home = () => {
   const navigation = useNavigation()
-  const router = useRouter() // ✅ Add this
+  const router = useRouter()
   const [isActive, setIsActive] = useState(false)
   const [userName, setUserName] = useState('User')
   const drawerRef = React.useRef<DrawerLayoutAndroid>(null)
@@ -263,7 +263,10 @@ const Home = () => {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.iconButton}>
+            <TouchableOpacity 
+              style={styles.iconButton}
+              onPress={() => router.push('/profile')}
+            >
               <View style={styles.profileCircle}>
                 <MaterialCommunityIcons name="account-circle" size={28} color={COLORS.purple} />
               </View>
